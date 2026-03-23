@@ -4,12 +4,12 @@ export type MembershipPlan = "associate" | "professional";
 
 const NZ_TIMEZONE = "Pacific/Auckland";
 
-export function isPromoWindowNz(now = DateTime.now()): boolean {
+export function isPromoWindowNz(now: DateTime = DateTime.utc()): boolean {
   const nzNow = now.setZone(NZ_TIMEZONE);
   return nzNow.month >= 1 && nzNow.month <= 6;
 }
 
-export function getNextJulyAnchorDate(now = DateTime.now()): DateTime {
+export function getNextJulyAnchorDate(now: DateTime = DateTime.utc()): DateTime {
   const nzNow = now.setZone(NZ_TIMEZONE);
   const anchorYear = nzNow.month >= 7 ? nzNow.year + 1 : nzNow.year;
 
@@ -26,7 +26,7 @@ export function getNextJulyAnchorDate(now = DateTime.now()): DateTime {
   );
 }
 
-export function getNextJulyAnchorEpoch(now = DateTime.now()): number {
+export function getNextJulyAnchorEpoch(now: DateTime = DateTime.utc()): number {
   return Math.floor(getNextJulyAnchorDate(now).toSeconds());
 }
 

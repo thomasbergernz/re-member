@@ -99,6 +99,13 @@ export const POST: APIRoute = async ({ request }) => {
   const inPromoWindow = isPromoWindowNz();
   const eligibleForPromo = inPromoWindow && !customerInfo.hasPriorSubscriptions;
 
+  // First-term amount: 50% off for Jan-Jun first-time subscribers, full price otherwise.
+  // mode=payment doesn't show a promo code field on hosted checkout, so we compute
+  // the discount here and pass the resulting amount directly to price_data.
+  const firstTermAmount = eligibleForPromo
+    ? Math.round(annualAmount * 0.5)
+    : annualAmount;
+
   const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
 
   // mode=payment for Option C: one-time charge, subscription created in webhook
@@ -106,15 +113,15 @@ export const POST: APIRoute = async ({ request }) => {
     mode: "payment",
     success_url: `${siteBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteBaseUrl}/cancel`,
-    allow_promotion_codes: true,
     line_items: [
       {
         quantity: 1,
         price_data: {
           currency: "nzd",
-          unit_amount: annualAmount,
+          unit_amount: firstTermAmount,
           product_data: {
-            name: recurringPrice.product?.toString() ?? "Membership",
+            name: plan === "associate" ? "Associate Membership" : "Professional Membership",
+            description: renewalMessage,
           },
         },
       },
@@ -139,11 +146,6 @@ export const POST: APIRoute = async ({ request }) => {
     setup_future_usage: "off_session",
   };
 
-  // Apply promotion code for eligible Jan-Jun first-time subscribers
-  if (eligibleForPromo) {
-    params.discounts = [{ promotion_code: import.meta.env.STRIPE_PROMO_CODE }];
-  }
-
   if (customerInfo.id) {
     params.customer = customerInfo.id;
   } else {
@@ -158,6 +160,7 @@ export const POST: APIRoute = async ({ request }) => {
       id: session.id,
       url: session.url,
       plan,
+      firstTermAmount,
       annualAmount,
       billingCycleAnchor,
       eligibleForPromo,
