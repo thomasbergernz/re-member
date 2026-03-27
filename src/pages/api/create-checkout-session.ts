@@ -118,7 +118,10 @@ export const POST: APIRoute = async ({ request }) => {
   // mode=payment for Option C: one-time charge, subscription created in webhook
   const params: Stripe.Checkout.SessionCreateParams = {
     mode: "payment",
-    success_url: `${siteBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url:
+      plan === "associate"
+        ? `https://www.eldaa.org.nz/associate-membership?session_id={CHECKOUT_SESSION_ID}`
+        : `${siteBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteBaseUrl}/cancel`,
     line_items: [
       {
