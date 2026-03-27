@@ -38,8 +38,8 @@ export function getSiteBaseUrl(requestUrl: string): string {
 
 export function getPriceForPlan(plan: MembershipPlan): string {
   const map: Record<MembershipPlan, string> = {
-    associate: process.env.STRIPE_PRICE_ASSOCIATE,
-    professional: process.env.STRIPE_PRICE_PROFESSIONAL,
+    associate: process.env.STRIPE_PRICE_ASSOCIATE ?? "",
+    professional: process.env.STRIPE_PRICE_PROFESSIONAL ?? "",
   };
 
   return map[plan];
