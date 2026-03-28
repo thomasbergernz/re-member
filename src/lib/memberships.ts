@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const DATA_DIR = join(process.cwd(), ".data");
@@ -23,7 +23,6 @@ export interface MembershipRecord {
 type MembershipStore = Record<string, MembershipRecord>;
 
 function ensureDataDir(): void {
-  const { mkdirSync } = require("node:fs");
   mkdirSync(DATA_DIR, { recursive: true });
 }
 
