@@ -15,7 +15,10 @@ export type DocType = (typeof REQUIRED_DOC_TYPES)[number];
 
 export interface UploadStatus {
   applicantId: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
   emailHash: string;
   docs: Partial<Record<DocType, string>>;
   complete: boolean;
@@ -49,7 +52,9 @@ const SHEET_NAME = "Professional Applications";
 const SHEET_HEADERS = [
   "applicant_id",
   "email",
-  "full_name",
+  "first_name",
+  "last_name",
+  "phone",
   "resume_token",
   "email_hash",
   "doc_application",
@@ -101,7 +106,7 @@ async function ensureSheetExists(sheets: ReturnType<typeof google.sheets>): Prom
   // Add headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!A1:O1`,
+    range: `${SHEET_NAME}!A1:S1`,
     valueInputOption: "RAW",
     requestBody: {
       values: [SHEET_HEADERS],
@@ -117,7 +122,9 @@ function hashEmail(email: string): string {
 
 export async function createApplicantRow(
   applicantId: string,
-  fullName: string,
+  firstName: string,
+  lastName: string,
+  phone: string,
   email: string,
   resumeToken: string
 ): Promise<void> {
@@ -136,7 +143,9 @@ export async function createApplicantRow(
   const row = [
     applicantId,
     email,
-    fullName,
+    firstName,
+    lastName,
+    phone,
     resumeToken,
     emailHash,
     "", // doc_application
@@ -155,7 +164,7 @@ export async function createApplicantRow(
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:P`,
+    range: `${SHEET_NAME}!A:S`,
     valueInputOption: "RAW",
     requestBody: {
       values: [row],
@@ -197,13 +206,13 @@ export async function updateDocUpload(
 
   // Map docType to column index
   const docColumnMap: Record<DocType, string> = {
-    application: "D",
-    training: "E",
-    ethics: "F",
-    criminal: "G",
-    advance_care: "H",
-    assisted_dying: "I",
-    fundamentals: "J",
+    application: "G",
+    training: "H",
+    ethics: "I",
+    criminal: "J",
+    advance_care: "K",
+    assisted_dying: "L",
+    fundamentals: "M",
   };
 
   const column = docColumnMap[docType];
@@ -250,10 +259,10 @@ export async function markComplete(
     throw new Error(`Applicant not found: ${applicantId}`);
   }
 
-  // Update columns K (complete) and L (stripe_session)
+  // Update columns N (complete) and O (stripe_session)
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `SHEET_NAME!K${rowIndex}:L${rowIndex}`,
+    range: `${SHEET_NAME}!N${rowIndex}:O${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [["TRUE", stripeSessionId]],
@@ -289,11 +298,11 @@ export async function markPaid(applicantId: string): Promise<void> {
     throw new Error(`Applicant not found: ${applicantId}`);
   }
 
-  // Update columns M (paid) and N (paid_at)
+  // Update columns P (paid) and Q (paid_at)
   const paidAt = new Date().toISOString();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `SHEET_NAME!M${rowIndex}:N${rowIndex}`,
+    range: `${SHEET_NAME}!P${rowIndex}:Q${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [["TRUE", paidAt]],
@@ -314,7 +323,7 @@ export async function getUploadStatus(
   // Find the row by applicant_id
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:P`,
+    range: `${SHEET_NAME}!A:S`,
   });
 
   const rows = result.data.values || [];
@@ -323,27 +332,30 @@ export async function getUploadStatus(
     const row = rows[i];
     if (row[0] === applicantId) {
       const docs: Partial<Record<DocType, string>> = {};
-      if (row[5]) docs.application = row[5];
-      if (row[6]) docs.training = row[6];
-      if (row[7]) docs.ethics = row[7];
-      if (row[8]) docs.criminal = row[8];
-      if (row[9]) docs.advance_care = row[9];
-      if (row[10]) docs.assisted_dying = row[10];
-      if (row[11]) docs.fundamentals = row[11];
+      if (row[7]) docs.application = row[7];
+      if (row[8]) docs.training = row[8];
+      if (row[9]) docs.ethics = row[9];
+      if (row[10]) docs.criminal = row[10];
+      if (row[11]) docs.advance_care = row[11];
+      if (row[12]) docs.assisted_dying = row[12];
+      if (row[13]) docs.fundamentals = row[13];
 
       const complete =
-        REQUIRED_DOC_TYPES.every((type) => docs[type]) || row[12] === "TRUE";
+        REQUIRED_DOC_TYPES.every((type) => docs[type]) || row[14] === "TRUE";
 
       return {
         applicantId: row[0],
-        fullName: row[2],
-        emailHash: row[4],
+        firstName: row[2],
+        lastName: row[3],
+        phone: row[4],
+        email: row[1],
+        emailHash: row[6],
         docs,
         complete,
-        stripeSessionId: row[13] || undefined,
-        paid: row[14] === "TRUE",
-        createdAt: row[15],
-        paidAt: row[16] || undefined,
+        stripeSessionId: row[15] || undefined,
+        paid: row[16] === "TRUE",
+        createdAt: row[17],
+        paidAt: row[18] || undefined,
       };
     }
   }
@@ -354,7 +366,9 @@ export async function getUploadStatus(
 export interface ApplicantInfo {
   id: string;
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   resumeToken: string;
   createdAt: string;
   paid: boolean;
@@ -370,24 +384,29 @@ export async function getApplicantByToken(
 
   const sheets = getSheetsClient();
 
+  // Ensure sheet exists before reading
+  await ensureSheetExists(sheets);
+
   // Find the row by resume_token
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:P`,
+    range: `${SHEET_NAME}!A:S`,
   });
 
   const rows = result.data.values || [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row[3] === token) {
+    if (row[5] === token) {
       return {
         id: row[0],
         email: row[1],
-        fullName: row[2],
-        resumeToken: row[3],
-        createdAt: row[15],
-        paid: row[14] === "TRUE",
+        firstName: row[2],
+        lastName: row[3],
+        phone: row[4],
+        resumeToken: row[5],
+        createdAt: row[17],
+        paid: row[16] === "TRUE",
       };
     }
   }
@@ -405,10 +424,13 @@ export async function getApplicantByEmail(
 
   const sheets = getSheetsClient();
 
+  // Ensure sheet exists before reading
+  await ensureSheetExists(sheets);
+
   // Find the row by email
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:P`,
+    range: `${SHEET_NAME}!A:S`,
   });
 
   const rows = result.data.values || [];
@@ -419,10 +441,12 @@ export async function getApplicantByEmail(
       return {
         id: row[0],
         email: row[1],
-        fullName: row[2],
-        resumeToken: row[3],
-        createdAt: row[15],
-        paid: row[14] === "TRUE",
+        firstName: row[2],
+        lastName: row[3],
+        phone: row[4],
+        resumeToken: row[5],
+        createdAt: row[17],
+        paid: row[16] === "TRUE",
       };
     }
   }

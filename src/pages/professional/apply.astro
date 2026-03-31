@@ -22,21 +22,50 @@ const token = Astro.url.searchParams.get("token");
       Enter your details to begin. You'll receive a link to continue your application.
     </p>
 
-    <div class="form-field">
-      <label for="fullName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
-        Full Name
+    <div class="form-row">
+      <div class="form-field">
+        <label for="firstName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
+          First name
+        </label>
+        <input
+          id="firstName"
+          name="firstName"
+          type="text"
+          placeholder="Jane"
+          autocomplete="given-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
+        />
+      </div>
+      <div class="form-field">
+        <label for="lastName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
+          Last name
+        </label>
+        <input
+          id="lastName"
+          name="lastName"
+          type="text"
+          placeholder="Doe"
+          autocomplete="family-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
+        />
+      </div>
+    </div>
+
+    <div class="form-field" style="margin-top: 0.75rem;">
+      <label for="phone" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
+        Phone number
       </label>
       <input
-        id="fullName"
-        name="fullName"
-        type="text"
-        placeholder="Jane Doe"
-        autocomplete="name"
+        id="phone"
+        name="phone"
+        type="tel"
+        placeholder="+64 21 123 4567"
+        autocomplete="tel"
         style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
       />
     </div>
 
-    <div class="form-field" style="margin-top: 1rem;">
+    <div class="form-field" style="margin-top: 0.75rem;">
       <label for="email" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
         Email Address
       </label>
@@ -96,6 +125,20 @@ const token = Astro.url.searchParams.get("token");
       Start New Application
     </a>
   </section>
+<style>
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
 </BaseLayout>
 
 <script is:inline define:vars={{ token }}>
@@ -125,11 +168,13 @@ const token = Astro.url.searchParams.get("token");
 
   if (registerBtn) {
     registerBtn.addEventListener("click", async () => {
-      const fullName = document.getElementById("fullName").value.trim();
+      const firstName = document.getElementById("firstName").value.trim();
+      const lastName = document.getElementById("lastName").value.trim();
+      const phone = document.getElementById("phone").value.trim();
       const email = document.getElementById("email").value.trim();
 
-      if (!fullName || !email) {
-        registerMessage.textContent = "Please enter your name and email.";
+      if (!firstName || !lastName || !email) {
+        registerMessage.textContent = "Please enter your first name, last name, and email.";
         registerMessage.style.display = "block";
         return;
       }
@@ -141,7 +186,7 @@ const token = Astro.url.searchParams.get("token");
         const res = await fetch("/api/professional/apply", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fullName, email })
+          body: JSON.stringify({ firstName, lastName, phone, email })
         });
 
         const data = await res.json();
@@ -151,7 +196,7 @@ const token = Astro.url.searchParams.get("token");
           if (data.resumeLink) {
             message += `<br><br><strong>Your resume link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
           }
-          message += `<br><br>Check your inbox (and spam folder) for the email.`;
+          // message += `<br><br>Check your inbox (and spam folder) for the email.`;
           registerMessage.innerHTML = message;
           registerMessage.style.display = "block";
           registerMessage.classList.add("status-ok");
@@ -181,10 +226,10 @@ const token = Astro.url.searchParams.get("token");
         if (data.status === "new") {
           showSection("registration-section");
         } else if (data.status === "paid") {
-          document.getElementById("welcome-message").textContent = `Welcome, ${data.fullName}`;
+          document.getElementById("welcome-message").textContent = `Welcome, ${data.firstName}`;
           showSection("paid-section");
         } else if (data.status === "partial" || data.status === "complete") {
-          document.getElementById("welcome-message").textContent = `Welcome back, ${data.fullName}`;
+          document.getElementById("welcome-message").textContent = `Welcome back, ${data.firstName}`;
           showSection("upload-section");
           renderUploadInterface(data);
         } else if (data.error) {

@@ -19,56 +19,78 @@ export const GET: APIRoute = async ({ url }) => {
     return Response.json({ status: "new" });
   }
 
-  const applicant = await getApplicantByToken(token);
+  try {
+    const applicant = await getApplicantByToken(token);
 
-  if (!applicant) {
-    return Response.json({ status: "new", error: "Invalid or expired link" });
-  }
+    if (!applicant) {
+      return Response.json({ status: "new", error: "Invalid or expired link" });
+    }
 
-  if (applicant.paid) {
+    if (applicant.paid) {
+      return Response.json({
+        status: "paid",
+        firstName: applicant.firstName,
+        lastName: applicant.lastName,
+      });
+    }
+
+    const uploadStatus = await getUploadStatus(applicant.id);
+
+    if (!uploadStatus) {
+      return Response.json({ status: "error", error: "Application not found" });
+    }
+
+    const docsUploaded = REQUIRED_DOC_TYPES.filter(
+      (type) => uploadStatus.docs[type]
+    );
+
+    const remaining = REQUIRED_DOC_TYPES.filter(
+      (type) => !uploadStatus.docs[type]
+    );
+
     return Response.json({
-      status: "paid",
-      fullName: applicant.fullName,
+      status: docsUploaded.length === 7 ? "complete" : "partial",
+      firstName: applicant.firstName,
+      lastName: applicant.lastName,
+      docsUploaded,
+      remaining,
+      complete: uploadStatus.complete,
     });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    Sentry.captureException(error, { extra: { token } });
+    logger.error("resume_link_load_failed", {
+      token,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return Response.json(
+      { status: "error", error: "Failed to load application. Please try again." },
+      { status: 500 }
+    );
   }
-
-  const uploadStatus = await getUploadStatus(applicant.id);
-
-  if (!uploadStatus) {
-    return Response.json({ status: "error", error: "Application not found" });
-  }
-
-  const docsUploaded = REQUIRED_DOC_TYPES.filter(
-    (type) => uploadStatus.docs[type]
-  );
-
-  const remaining = REQUIRED_DOC_TYPES.filter(
-    (type) => !uploadStatus.docs[type]
-  );
-
-  return Response.json({
-    status: docsUploaded.length === 7 ? "complete" : "partial",
-    fullName: applicant.fullName,
-    docsUploaded,
-    remaining,
-    complete: uploadStatus.complete,
-  });
 };
 
 export const POST: APIRoute = async ({ request, url }) => {
-  let payload: { fullName?: string; email?: string };
+  let payload: { firstName?: string; lastName?: string; phone?: string; email?: string };
 
   try {
-    payload = (await request.json()) as { fullName?: string; email?: string };
+    payload = (await request.json()) as { firstName?: string; lastName?: string; phone?: string; email?: string };
   } catch {
     return Response.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const fullName = payload.fullName?.trim();
+  const firstName = payload.firstName?.trim();
+  const lastName = payload.lastName?.trim();
+  const phone = payload.phone?.trim();
   const email = payload.email?.trim().toLowerCase();
 
-  if (!fullName) {
-    return Response.json({ error: "Full name is required." }, { status: 400 });
+  if (!firstName) {
+    return Response.json({ error: "First name is required." }, { status: 400 });
+  }
+
+  if (!lastName) {
+    return Response.json({ error: "Last name is required." }, { status: 400 });
   }
 
   if (!email) {
@@ -79,6 +101,8 @@ export const POST: APIRoute = async ({ request, url }) => {
   if (!email.includes("@") || !email.includes(".")) {
     return Response.json({ error: "Valid email is required." }, { status: 400 });
   }
+
+  const fullName = `${firstName} ${lastName}`;
 
   try {
     // Check if email already exists
@@ -99,7 +123,7 @@ export const POST: APIRoute = async ({ request, url }) => {
     const resumeToken = crypto.randomUUID();
 
     // Create row in Google Sheet with all info
-    await createApplicantRow(applicantId, fullName, email, resumeToken);
+    await createApplicantRow(applicantId, firstName, lastName, phone, email, resumeToken);
 
     // Build resume link
     const siteBaseUrl = getSiteBaseUrl(url.href);
