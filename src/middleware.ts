@@ -11,7 +11,7 @@ const rateLimitStore = new Map<
 >();
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS = 15;
+const MAX_REQUESTS = 30;
 
 function getClientIp(request: Request): string {
   return (
