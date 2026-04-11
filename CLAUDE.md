@@ -1,237 +1,341 @@
-# Notes
-Last updated: 2026-03-27
+# Professional Membership — Phase 2: Digital Form + Multi-File Upload
+
+**Date:** 2026-04-01
+**Status:** Draft
+
+---
 
 ## Scope
-Implement Option C custom flow so membership subscriptions can:
-- Charge first-term amount in Checkout without Stripe trial copy on the hosted page.
-- Anchor renewals to 1 July each year.
-- Apply a 50% first-subscription discount from 1 January to 30 June with promo code `LDTY8PQR`.
-- Keep renewal logic server-side and auditable via webhook.
-- Separate Associate (index.astro) and Professional (/professional) checkout flows.
-- Log all checkout completions to Google Sheets for downstream processing.
 
-## Stripe Objects in Use (Test Mode)
-- Associate product: `prod_U7vqEzAEaaK8nC`
-- Professional product: `prod_U7vDD3Q6088P3i`
-- Associate yearly price: `price_1T9fz1CqKoUYavpqs4Kb7p0d`
-- Professional yearly price: `price_1T9fNECqKoUYavpqJr5YzSll`
-- Promotion code: `LDTY8PQR`
-- Coupon: `half` (50% off, once)
+Two separate but related improvements:
 
-## Verified Business Logic
-- Promo code is restricted to first-time transactions.
-- Promo code expires at end of 30 June 2026 (NZ time).
-- Initial Jan-to-Jun invoices show 50% discount.
-- Renewal cycle invoice at July boundary is full annual price.
+**A) Multi-file upload per category** — applicants can upload multiple files per doc type (e.g., multiple training certificates). Currently each category holds exactly one file.
 
-## Checkout Pattern
-Use `checkout.sessions.create` with:
-- `mode=payment`
-- one-time line item amount = first-term charge today
-- `payment_intent_data[setup_future_usage]=off_session`
-- metadata containing:
-  - plan
-  - recurring annual price id
-  - next Jul 1 anchor epoch
-- custom copy: `Then NZ$X per year starting 1 July.`
+**B) Digital form fields** — capture applicant details (name, address, phone, email, qualifications, experience, declaration) directly in the form instead of requiring a PDF upload for the "Application Form" category.
 
-First-term amount logic:
-- Jan-Jun NZ + first-time subscriber + promo code `LDTY8PQR`: charge 50% of annual amount.
-- Otherwise: charge full amount to next 1 July.
+---
 
-Webhook behavior (`checkout.session.completed`):
-- set customer default payment method from PaymentIntent
-- create annual subscription with `trial_end=<next Jul 1 epoch>`
-- use idempotency key derived from session id
+## A) Multi-File Upload
 
-## Implementation Rules
-1. Keep Stripe secret keys server-side only in environment variables.
-2. Never embed secret keys in frontend code or markdown.
-3. Keep product and price IDs in server config, not hardcoded in templates.
-4. Compute promo-window dates in `Pacific/Auckland` timezone.
-5. Compute billing anchor as next 1 July boundary.
-6. Enforce entitlement changes only from webhook events, not client redirects.
+### Problem
+Currently `doc_training` etc. store a single timestamp per category. Applicants with multiple certificates must zip them. No way to delete or replace a file.
 
-## Minimum Webhook Events
-- `checkout.session.completed` (creates deferred recurring subscription)
-- `invoice.paid`
-- `invoice.payment_failed`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
+### Solution: Drive Files Tracking Sheet
 
-## Latest Test Checkout Sessions
-- Associate: `cs_test_a1dtZnS3gE4TxwZ7TViHxUOy3n2SnLxUHZaaFKtn5pZhAxl6zsc8IdVjrj`
-- Professional: `cs_test_a1WuRmT0ulJuvwYQr43EK8TZYR8nMSwxc6RUMPZBEKWErSnDmRBmjVE08K`
+Create a new sheet tab `"Drive Files"` alongside `"Professional Applications"`:
 
-## Current Scaffold Status
-- Created Astro app scaffold with server output and Node adapter.
-- Associate membership: `src/pages/index.astro` (single plan, uses `/api/create-checkout-session`).
-- Professional membership: `src/pages/professional.astro` with dedicated `/api/create-professional-checkout` endpoint.
-- Option C webhook subscription creation: `src/pages/api/stripe-webhook.ts`.
-- Success page (`/success`) redirects Professional members to `eldaa.org.nz/professional-membership`.
-- Session info API: `src/pages/api/session-info.ts` (used by success page to detect plan).
-- Cancel pages: `src/pages/cancel.astro` (Associate), `src/pages/professional/cancel.astro` (Professional).
-- Webhook logs `checkout.session.completed` to Google Sheets via service account.
-- Google Sheets helper: `src/lib/google-sheets.ts`.
-- Structured JSON logger: `src/lib/logger.ts` (pino, child loggers per request).
-- Health endpoint: `src/pages/api/health.ts` (`GET /api/health` → `{status, stripe}`).
-- Sentry error tracking: `@sentry/node`, initialized lazily from `SENTRY_DSN` env var.
-- Added env template: `.env.example`.
-- Build and diagnostics pass (`npm run build`, `npm run check`).
-- Deployed to Fly.io at `https://subscribe.eldaa.org.nz/` with Dockerfile + fly.toml.
-- Webhook tested successfully via `stripe trigger checkout.session.completed`.
-- Unit tests for business logic: `src/lib/stripe-checkout.test.ts`, `src/lib/memberships.test.ts`.
-
-## Next Steps
-1. ~~Add persistent idempotency/event tracking for webhook processing.~~ (done via idempotencyKey + local membership store)
-2. ~~Add local membership persistence mapping customer/subscription records.~~ (done in `.data/memberships.json`)
-3. ~~Log checkout completions to Google Sheets.~~ (done via service account + googleapis)
-4. Add integration tests for promo-code eligibility and prorated fallback.
-5. Configure production Stripe webhook in Dashboard (register `https://subscribe.eldaa.org.nz/api/stripe-webhook`).
-6. Switch from test keys to live Stripe keys before going live.
-7. Share Google Sheets spreadsheet with the service account email before enabling webhook logging.
-
-## Guardrails For Future Changes
-1. Keep first-term charge calculations in NZ timezone and test boundary dates.
-2. Keep recurring subscription creation in webhook only, not on client redirect.
-3. Keep recurring price IDs in env/config, not hardcoded in frontend scripts.
-4. Keep webhook creation path idempotent by checkout session id.
-
-## Deployment (Fly.io)
-
-### Files
-- `Dockerfile` — multi-stage Node.js build
-- `.dockerignore` — excludes node_modules, dist, tests, env files
-- `fly.toml` — app config (1x shared CPU, 256MB RAM, Sydney region)
-
-### Commands
-```bash
-fly launch                    # First-time setup (already done — app: eldaa)
-fly deploy                    # Deploy to Fly.io
-fly secrets set KEY=value    # Set secrets
-fly machines list            # List running machines
-fly machines stop <id>       # Stop machine
-fly machines start <id>      # Start machine
+```
+Columns: file_id | applicant_id | doc_type | original_filename | uploaded_at | deleted
 ```
 
-### Required Secrets
-```bash
-fly secrets set STRIPE_SECRET_KEY=sk_live_...
-fly secrets set STRIPE_WEBHOOK_SECRET=whsec_...
-fly secrets set STRIPE_PRICE_ASSOCIATE=price_...
-fly secrets set STRIPE_PRICE_PROFESSIONAL=price_...
-fly secrets set PUBLIC_SITE_URL=https://subscribe.eldaa.org.nz
-fly secrets set GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL=eldaa-sheets@stripe-billing-491503.iam.gserviceaccount.com
-fly secrets set GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-fly secrets set GOOGLE_SHEETS_SPREADSHEET_ID=1Zbqn6BSExD5V9cPmA2rCJ2rN5f7gnP9fHjP0s5oq_I8
-fly secrets set SENTRY_DSN=https://xxxxx@o123456.ingest.sentry.io/xxxxx
+- One row **per file** (not per applicant)
+- `deleted` = "TRUE" for soft deletes (allows undelete; actual file stays in Drive but is ignored)
+- Applicant's Drive folder: `/applications/{applicant_id}/documents/{doc_type}/{file_id}.{ext}`
+  - Single `documents` subfolder per applicant instead of one per doc type
+- `doc_application`, `doc_training`, etc. columns in the main sheet become informational (presence = at least one non-deleted file exists for that doc type) — stored as `"N file(s)"` or count
+
+### File Naming Convention
+- `{random_uuid}.{ext}` — no original filenames in Drive, only in Drive Files sheet
+- Prevents path conflicts and information leakage
+
+### API Changes
+
+**`POST /api/professional/upload-file`** (modified)
+- Accepts `docType` + `file`
+- Uploads to Drive folder path: `/applications/{applicant_id}/documents/{docType}/{uuid}.{ext}`
+- Inserts row into `Drive Files` sheet: `{file_id, applicant_id, docType, original_filename, timestamp, "FALSE"}`
+- Returns: `{ success: true, fileId, filename }`
+- On error: log + return error (do not update main sheet doc timestamp)
+
+**`DELETE /api/professional/upload-file?fileId=xxx`**
+- Soft-delete: set `deleted="TRUE"` on the row in `Drive Files` sheet
+- Does NOT delete the actual Drive file (Drive API: `files.update` with `trashed=true`)
+- Returns: `{ success: true }`
+
+**`GET /api/professional/upload-files?token=xxx`**
+- Returns all non-deleted files for this applicant: `[{ fileId, docType, filename, uploadedAt }]`
+
+**`GET /api/professional/apply?token=xxx`** (modified `GET` response)
+- Instead of `docsUploaded: string[]` (timestamps), returns `docsUploaded: { [docType]: FileInfo[] }`
+- `FileInfo: { fileId, filename, uploadedAt }`
+- `status: "complete"` when every docType has ≥1 non-deleted file
+
+### UI Changes (`apply.astro`)
+
+- Each doc type card shows **list of uploaded files** (filename + timestamp) not just a badge
+- Each uploaded file has a **Delete button** (triggers `DELETE /upload-file`)
+- Each doc type still has **"Add another" button** to upload more files
+- Progress counter changes from "N / 7" to "N of 7 categories complete" (a category is complete if ≥1 file uploaded)
+- No file limit per category
+
+### Google Sheet Changes
+
+**`Drive Files` tab** (new):
+```
+Columns: file_id | applicant_id | doc_type | original_filename | uploaded_at | deleted
+```
+- Created on first file upload (lazy — `ensureSheetExists` pattern)
+- Headers row = row 1
+
+**`Professional Applications` tab** (existing — modify):
+- Add `doc_application_count`, `doc_training_count`, ... `doc_fundamentals_count` columns (N=18 → S=25)
+  - Or keep as timestamp presence and count via Drive Files lookup at render time
+  - **Decision:** Keep as-is (presence only). Count comes from Drive Files at display/check time.
+
+---
+
+## B) Digital Form Fields
+
+### New Form Sections in `apply.astro`
+
+Add between the existing registration form and the upload section:
+
+**Section: "About You"**
+```
+First Name     [text]
+Last Name      [text]
+Email          [email]
+Phone          [tel]           ← already exists
+Address        [text]
+City/Town      [text]
+Postcode       [text]
+Website        [text, optional]
+Qualifications [text]          e.g. RN, OT, SW
+Current Role   [text]
+Organisation   [text]
 ```
 
-### Optional Env Vars
-- `LOG_LEVEL` — pino log level (`debug`, `info`, `warn`, `error`). Defaults to `info`.
-
-### Stripe Webhook (Production)
-Register in Stripe Dashboard → Developers → Webhooks:
-- URL: `https://subscribe.eldaa.org.nz/api/stripe-webhook`
-- Events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
-
-### Observability
-
-**Health check** (use with Dead Man's Snitch / Cronitor / Better Uptime):
+**Section: "Your EOL Doula Experience"**
 ```
-GET https://subscribe.eldaa.org.nz/api/health
-→ 200 { "status": "ok", "stripe": "connected" }
-→ 503 { "status": "degraded", "stripe": "disconnected", "error": "..." }
+Description    [textarea, 4 rows]
 ```
 
-**Live logs** (structured JSON):
-```bash
-fly logs --app eldaa | grep '{"level":"error"}'
+**Section: "Confirmations"**
+```
+☐ I confirm the information provided is accurate
+☐ I have read and agree to the ELDAA Code of Ethics
+☐ I have read and understand the Scope of Practice
 ```
 
-**Alerting**: Sentry captures and alerts on:
-- Subscription creation failures
-- Google Sheets logging failures
-- Checkout session creation failures
-- Unhandled 500s in webhook processing
+**Section: "Upload Supporting Documents"**
+(moves existing upload interface here — replaces `doc_application` PDF upload)
 
-Sentry issues appear within minutes of the first error matching. Set `LOG_LEVEL=debug` in `fly.toml` or Fly secrets for verbose request tracing.
+### New Columns in `Professional Applications` Sheet
 
-### Testing Webhooks Locally
-```bash
-stripe listen --forward-to https://subscribe.eldaa.org.nz/api/stripe-webhook
+Add after existing columns (after `last_name` at D, `phone` at E):
+
+| Column | Header | Notes |
+|--------|--------|-------|
+| F | `address` | |
+| G | `city` | |
+| H | `postcode` | |
+| I | `website` | optional |
+| J | `qualifications` | |
+| K | `current_role` | |
+| L | `organisation` | |
+| M | `experience` | free text |
+| N | `confirm_accuracy` | "TRUE"/"FALSE" |
+| O | `confirm_ethics` | "TRUE"/"FALSE" |
+| P | `confirm_scope` | "TRUE"/"FALSE" |
+| Q | `declaration_signed_at` | ISO timestamp |
+
+**Existing column shift:**
+- Old `resume_token` (col C) → now col R
+- Old `email_hash` (col D) → now col S
+- etc. — all subsequent columns shift +9
+
+### API Changes
+
+**`POST /api/professional/apply`** (modified)
+- Accepts new fields: `{ firstName, lastName, phone, email, address?, city?, postcode?, website?, qualifications?, currentRole?, organisation?, experience?, confirmAccuracy, confirmEthics, confirmScope }`
+- All confirmation fields required (`boolean`)
+- Writes to new sheet columns on row creation
+- `declaration_signed_at` = ISO timestamp (captured server-side, not by client)
+- If any confirmations are false → 400 error
+
+**`GET /api/professional/apply?token=xxx`** (modified)
+- Returns all form fields alongside `status`, `docsUploaded`, etc.
+- Used to repopulate form on return visits
+
+### Document Upload Behavior Change
+
+- `doc_application` doc type is **removed** from `REQUIRED_DOC_TYPES`
+- The "Application Form" PDF upload is **replaced** by the digital form submission
+- Applicants still upload: training certificates, criminal check, ethics, advance care, assisted dying, fundamentals
+- Upload section now appears **after** all digital form fields are filled and confirmed
+
+### Declaration Signature
+
+- No handwritten signature captured digitally (out of scope)
+- Checkbox confirmation + timestamp in `declaration_signed_at` is sufficient
+- Stripe payment confirmation serves as legal intent
+
+### Form Validation
+
+All fields required unless marked optional:
+- `firstName`, `lastName`, `email`, `phone`
+- `address`, `city`, `postcode`
+- `qualifications`, `currentRole`, `organisation`
+- `experience` (min 20 characters)
+- `confirmAccuracy`, `confirmEthics`, `confirmScope` (must all be true)
+
+---
+
+## File: `src/lib/drive-files.ts` (new)
+
+```typescript
+interface DriveFile {
+  fileId: string;
+  applicantId: string;
+  docType: DocType;
+  originalFilename: string;
+  uploadedAt: string;
+  deleted: boolean;
+}
+
+export async function addDriveFile(...): Promise<DriveFile>
+export async function softDeleteDriveFile(fileId): Promise<void>
+export async function listDriveFiles(applicantId): Promise<DriveFile[]>
+export async function getDriveFilesForDocType(applicantId, docType): Promise<DriveFile[]>
 ```
-Note: Always use `https://` — Stripe CLI doesn't follow HTTP→HTTPS redirects.
 
-### Scaling
-`fly.toml` sets `max_machines = 1` and `min_machines_running = 0` — machines stop when idle and start on traffic. Currently running 1x shared-cpu-1x with 256MB RAM.
+Uses same `getSheetsClient()` / `SHEET_NAME = "Drive Files"` pattern as `upload-sheet.ts`.
 
-### Env Var Note
-Server-side code uses `process.env.*` (not `import.meta.env.*`) for env vars. `import.meta.env` does not reliably expose runtime env vars in Fly.io's Node.js SSR container.
+---
 
-## Deploying Elsewhere
+## File: `src/lib/upload-sheet.ts` (modified)
 
-The Dockerfile is a standard multi-stage Node.js build. It builds the Astro SSR app and runs it as a standalone Node.js server.
+- `SHEET_HEADERS` for `Professional Applications` — add new columns F–Q
+- All column letter references in `updateDocUpload`, `markComplete`, `markPaid`, `getUploadStatus`, `getApplicantByToken`, `getApplicantByEmail` — shift by +9
+- `createApplicantRow` — add new fields as parameters
+- `UploadStatus` interface — add new form fields
 
-### Build Image
-```bash
-docker build -t eldaa-membership .
+---
+
+## File: `src/pages/api/professional/apply.ts` (modified)
+
+- Accept new form fields in `POST` payload
+- Validate confirmation checkboxes
+- Write to new sheet columns
+- `GET` response — return all form fields + file list
+
+---
+
+## File: `src/pages/api/professional/upload-file.ts` (modified)
+
+- After upload: insert row into `Drive Files` sheet
+- Remove `updateDocUpload` call (no longer needed for timestamp)
+- Return `{ fileId, filename }`
+
+---
+
+## File: `src/pages/api/professional/delete-file.ts` (new)
+
+- `DELETE` handler: soft-delete row in `Drive Files`, trash Drive file
+- Auth: require valid `token` + verify `fileId` belongs to applicant
+
+---
+
+## File: `src/pages/professional/apply.astro` (modified)
+
+- Add form sections for all new fields (layout: 2-col grid for address fields)
+- Textarea for experience
+- Checkboxes for confirmations
+- Progressive disclosure: upload section only shown after form fields + confirmations complete
+- On return visit: pre-populate all form fields from `GET /api/professional/apply` response
+- Each doc type card: show list of files with delete buttons, "Add file" button
+- File upload replaces `doc_application` — `REQUIRED_DOC_TYPES` excludes `application`
+
+---
+
+## Backwards Compatibility
+
+**Existing applicants** (created before this change):
+- `Drive Files` sheet has no rows for them — treated as having no uploaded files
+- Form fields in sheet are empty — form shows blank (correct for in-progress applicants)
+- Resume link still works — form loads blank fields
+
+**Sheet header migration:**
+- Old headers: `applicant_id | email | first_name | last_name | phone | resume_token | email_hash | doc_application | ...`
+- New headers: shift resume_token onwards by +9 columns
+- Manual step required in Google Sheets: insert 9 blank columns after `last_name` and add new headers
+- OR: delete old sheet, let it re-create on next submission (loses existing applicants — acceptable for MVP)
+
+---
+
+## Summary of Changes
+
+### New files
+- `src/lib/drive-files.ts` — Drive Files sheet CRUD
+- `src/pages/api/professional/delete-file.ts` — soft-delete endpoint
+
+### Modified files
+- `src/lib/upload-sheet.ts` — new columns, shifted indices, new fields in interfaces
+- `src/pages/api/professional/apply.ts` — accept + validate new fields, write to sheet, return file list
+- `src/pages/api/professional/upload-file.ts` — insert Drive Files row, return fileId
+- `src/pages/professional/apply.astro` — new form sections, multi-file UI, delete buttons
+
+### Sheet structure after change
+**`Professional Applications`** (columns A–Z+):
+```
+A: applicant_id
+B: email
+C: first_name
+D: last_name
+E: phone
+F: address
+G: city
+H: postcode
+I: website
+J: qualifications
+K: current_role
+L: organisation
+M: experience
+N: confirm_accuracy
+O: confirm_ethics
+P: confirm_scope
+Q: declaration_signed_at
+R: resume_token
+S: email_hash
+T: doc_application_count
+U: doc_training_count
+V: doc_ethics_count
+W: doc_criminal_count
+X: doc_advance_care_count
+Y: doc_assisted_dining_count
+Z: doc_fundamentals_count
+AA: complete
+AB: stripe_session
+AC: paid
+AD: created_at
+AE: paid_at
 ```
 
-### Run Container
-```bash
-docker run -p 4321:4321 \
-  -e STRIPE_SECRET_KEY=sk_... \
-  -e STRIPE_WEBHOOK_SECRET=whsec_... \
-  -e STRIPE_PRICE_ASSOCIATE=price_... \
-  -e STRIPE_PRICE_PROFESSIONAL=price_... \
-  -e PUBLIC_SITE_URL=https://your-domain.com \
-  -e GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL=... \
-  -e GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n" \
-  -e GOOGLE_SHEETS_SPREADSHEET_ID=... \
-  eldaa-membership
+**`Drive Files`** (new tab):
+```
+A: file_id
+B: applicant_id
+C: doc_type
+D: original_filename
+E: uploaded_at
+F: deleted
 ```
 
-### Key Details
-- **Base image**: `node:22-alpine`
-- **Port**: 4321 (set `PORT=4321`, `HOST=0.0.0.0`)
-- **Entry point**: `node dist/server/entry.mjs`
-- **Dependencies**: installed via `npm install` (not `npm ci` — no lockfile required)
-- **Build artifact**: Astro SSR output in `dist/`
-- **User**: runs as root (no explicit USER set — adjust for non-test deployments)
+---
 
-### Cloudflare Tunnel (alternative to Fly.io)
-Run the container internally (no direct public internet), then expose via Cloudflare tunnel.
+## Manual Migration Step Required
 
-**1. Create a Docker network:**
-```bash
-docker network create eldaa-net
-```
+Insert 9 columns (F–N) into the existing `Professional Applications` sheet and add the new headers before deploying. Existing rows will have empty new columns — acceptable.
 
-**2. Run the app container privately (no port exposed to host):**
-```bash
-docker run --network eldaa-net --name eldaa-app \
-  -e STRIPE_SECRET_KEY=sk_... \
-  -e STRIPE_WEBHOOK_SECRET=whsec_... \
-  -e STRIPE_PRICE_ASSOCIATE=price_... \
-  -e STRIPE_PRICE_PROFESSIONAL=price_... \
-  -e PUBLIC_SITE_URL=https://your-domain.com \
-  -e GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL=... \
-  -e GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n" \
-  -e GOOGLE_SHEETS_SPREADSHEET_ID=... \
-  eldaa-membership
-```
+---
 
-**3. Run cloudflared as a container (no install needed):**
-```bash
-docker run --network eldaa-net cloudflare/cloudflared tunnel \
-  --url http://eldaa-app:4321
-```
-`cloudflared` is the official Cloudflare container image — no host install required.
+## Testing Checklist
 
-This outputs a `*.trycloudflare.com` URL. For a permanent tunnel, create one in Cloudflare Zero Trust → Tunnels, then point it to `http://eldaa-app:4321`.
-
-**Env var for self-hosted:** Set `PUBLIC_SITE_URL` to your Cloudflare tunnel domain (e.g., `https://eldaa.yourdomain.com`).
-
-**Note:** This does not affect Fly.io deployment — Fly uses its own wireguard network and TLS termination by default.
-Server-side code uses `process.env.*` (not `import.meta.env.*`) for env vars. `import.meta.env` does not reliably expose runtime env vars in Fly.io's Node.js SSR container.
+- [ ] Submit new application → all form fields written to correct sheet columns
+- [ ] Resume link → all form fields pre-populated
+- [ ] Upload 3 files to "training" category → all 3 shown with filenames + timestamps
+- [ ] Delete middle file → remaining 2 still shown, deleted file gone
+- [ ] "Continue to Payment" appears only when all 6 doc categories have ≥1 file
+- [ ] Declaration checkboxes must all be true to proceed
+- [ ] Stripe payment → webhook fires → Sheet1 logged correctly
+- [ ] Existing applicant resume link still works (backwards compat)

@@ -19,7 +19,7 @@ const token = Astro.url.searchParams.get("token");
   <section id="registration-section" class="card" style="margin-top: 1rem;">
     <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Start Your Application</h2>
     <p style="color: var(--muted); margin-bottom: 1rem;">
-      Enter your details to begin. You'll receive a link to continue your application.
+      Enter your details to begin. You'll receive a unique link to resume your application, until you've uploaded all requirements.
     </p>
 
     <div class="form-row">
@@ -194,13 +194,13 @@ const token = Astro.url.searchParams.get("token");
         if (data.success) {
           let message = `Application started!`;
           if (data.resumeLink) {
-            message += `<br><br><strong>Your resume link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
+            message += `<br><br><strong>Your upload link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
           }
           // message += `<br><br>Check your inbox (and spam folder) for the email.`;
           registerMessage.innerHTML = message;
           registerMessage.style.display = "block";
           registerMessage.classList.add("status-ok");
-          registerBtn.textContent = "Link Sent";
+          registerBtn.textContent = "Link Created";
         } else {
           registerMessage.textContent = data.error || "Failed to create application.";
           registerMessage.style.display = "block";
