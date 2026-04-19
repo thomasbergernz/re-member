@@ -11,72 +11,51 @@ const token = Astro.url.searchParams.get("token");
   <section class="card">
     <h1 class="headline">Professional Membership</h1>
     <p class="sub">
-      Upload your required documents, then complete payment.
+      Complete all sections and upload required documents to apply.
     </p>
   </section>
 
-  <!-- Registration Form -->
-  <section id="registration-section" class="card" style="margin-top: 1rem;">
+  <!-- Step Indicator -->
+  <div id="step-indicator" class="card" style="margin-top: 1rem; display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span id="step-label" style="font-weight: 600;">Step 1 of 8</span>
+      <span id="step-name" style="color: var(--muted); font-size: 0.9rem;"></span>
+    </div>
+    <div style="display: flex; gap: 4px;">
+      <div id="step-dots" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
+    </div>
+  </div>
+
+  <!-- Registration (step 0 - shown when no token) -->
+  <section id="section-register" class="card" style="margin-top: 1rem;">
     <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Start Your Application</h2>
     <p style="color: var(--muted); margin-bottom: 1rem;">
-      Enter your details to begin. You'll receive a unique link to resume your application, until you've uploaded all requirements.
+      Enter your basic details to begin. You'll receive a unique link to resume your application.
     </p>
 
     <div class="form-row">
       <div class="form-field">
-        <label for="firstName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
-          First name
-        </label>
-        <input
-          id="firstName"
-          name="firstName"
-          type="text"
-          placeholder="Jane"
-          autocomplete="given-name"
-          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
-        />
+        <label for="reg-firstName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">First name</label>
+        <input id="reg-firstName" name="firstName" type="text" placeholder="Jane" autocomplete="given-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
       </div>
       <div class="form-field">
-        <label for="lastName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
-          Last name
-        </label>
-        <input
-          id="lastName"
-          name="lastName"
-          type="text"
-          placeholder="Doe"
-          autocomplete="family-name"
-          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
-        />
+        <label for="reg-lastName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Last name</label>
+        <input id="reg-lastName" name="lastName" type="text" placeholder="Doe" autocomplete="family-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
       </div>
     </div>
 
     <div class="form-field" style="margin-top: 0.75rem;">
-      <label for="phone" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
-        Phone number
-      </label>
-      <input
-        id="phone"
-        name="phone"
-        type="tel"
-        placeholder="+64 21 123 4567"
-        autocomplete="tel"
-        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
-      />
+      <label for="reg-phone" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Phone number</label>
+      <input id="reg-phone" name="phone" type="tel" placeholder="+64 21 123 4567" autocomplete="tel"
+        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
     </div>
 
     <div class="form-field" style="margin-top: 0.75rem;">
-      <label for="email" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
-        Email Address
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        placeholder="jane@example.com"
-        autocomplete="email"
-        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;"
-      />
+      <label for="reg-email" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Email Address</label>
+      <input id="reg-email" name="email" type="email" placeholder="jane@example.com" autocomplete="email"
+        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
     </div>
 
     <button id="register-btn" class="button" style="margin-top: 1.5rem; width: 100%;">
@@ -86,25 +65,329 @@ const token = Astro.url.searchParams.get("token");
     <p id="register-message" style="margin-top: 1rem; color: var(--muted); display: none;"></p>
   </section>
 
-  <!-- Upload Interface -->
-  <section id="upload-section" class="card" style="margin-top: 1rem; display: none;">
-    <h2 id="welcome-message" style="margin: 0 0 1rem; font-size: 1.25rem;"></h2>
+  <!-- Step 1: About You -->
+  <section id="section-1" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">About You</h2>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label for="firstName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">First name *</label>
+        <input id="firstName" name="firstName" type="text" placeholder="Jane" autocomplete="given-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="lastName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Last name *</label>
+        <input id="lastName" name="lastName" type="text" placeholder="Doe" autocomplete="family-name"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top: 0.75rem;">
+      <div class="form-field">
+        <label for="dateOfBirth" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Date of Birth *</label>
+        <input id="dateOfBirth" name="dateOfBirth" type="text" placeholder="DD/MM/YYYY"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ethnicity" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Ethnicity *</label>
+        <input id="ethnicity" name="ethnicity" type="text" placeholder="e.g. New Zealand European"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+    </div>
+
+    <div class="form-field" style="margin-top: 0.75rem;">
+      <label for="address" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Address *</label>
+      <input id="address" name="address" type="text" placeholder="123 Main Street, Auckland, 1010"
+        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+    </div>
+
+    <div class="form-field" style="margin-top: 0.75rem;">
+      <label for="postalAddress" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Postal Address</label>
+      <input id="postalAddress" name="postalAddress" type="text" placeholder="Optional — if different from above"
+        style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+    </div>
+
+    <div class="form-row" style="margin-top: 0.75rem;">
+      <div class="form-field">
+        <label for="phone" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Phone *</label>
+        <input id="phone" name="phone" type="tel" placeholder="+64 21 123 4567" autocomplete="tel"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="email" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Email *</label>
+        <input id="email" name="email" type="email" placeholder="jane@example.com" autocomplete="email"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top: 0.75rem;">
+      <div class="form-field">
+        <label for="businessName" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Business Name</label>
+        <input id="businessName" name="businessName" type="text" placeholder="Optional"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="website" style="display: block; font-weight: 600; margin-bottom: 0.45rem;">Website / Social</label>
+        <input id="website" name="website" type="text" placeholder="Optional"
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1.1rem;" />
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="0" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="2" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 2: Training & Education -->
+  <section id="section-2" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Your Training & Education</h2>
+    <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">
+      List all End of Life Doula courses you have completed. Attach certificates separately in the Document Upload section.
+    </p>
+
+    <div id="courses-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+
+    <button type="button" id="add-course-btn" class="button-secondary" style="margin-top: 0.75rem; width: 100%;">
+      + Add Another Course
+    </button>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="1" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="3" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 3: EOL Doula Experience -->
+  <section id="section-3" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Your EOL Doula Experience</h2>
+
+    <div id="experience-list" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;"></div>
+    <button type="button" id="add-experience-btn" class="button-secondary" style="width: 100%;">+ Add Experience</button>
+
+    <h3 style="margin: 1.5rem 0 0.75rem; font-size: 1.1rem;">Example 1 *</h3>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem;">Describe an example including setting/context, role, skills used, ethical/cultural considerations, and outcome/learning.</p>
+    <textarea id="example1" rows="4" placeholder="Describe your experience..." style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
+
+    <h3 style="margin: 1rem 0 0.75rem; font-size: 1.1rem;">Example 2</h3>
+    <textarea id="example2" rows="4" placeholder="Optional second example..." style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
+
+    <h3 style="margin: 1rem 0 0.75rem; font-size: 1.1rem;">Example 3</h3>
+    <textarea id="example3" rows="4" placeholder="Optional third example..." style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="2" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="4" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 4: Further Requirements -->
+  <section id="section-4" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Further Requirements</h2>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="agreeDoulaServices" /> Do you agree to actively provide Doula Services? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="agreeInterview" /> Do you agree to an interview by one or more committee members? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="commitProfessionalDev" /> Do you agree to submit proof of up to 10 hours of professional development each year? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="willInsurance" /> Will you take out professional indemnity insurance? (recommended)
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="listDirectory" /> Do you wish to be listed as a practicing End of Life Doula in our directory? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="provideCriminalCheck" /> Are you willing to provide a current Ministry of Justice criminal record check? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="attendMeetings" /> Are you willing to attend regular ELDAA meetings and events, and engage with and support your local ELDAA community? *
+        </label>
+      </div>
+      <div class="yn-question">
+        <label style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="workRemotely" /> Are you willing to work remotely where there is no other available Professional Member in a Client's area? *
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="3" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="5" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 5: Core Competencies -->
+  <section id="section-5" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">EOL Doula Standards & Core Competencies</h2>
+    <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">Please tick the competencies you are confident in providing.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;" id="competencies-grid"></div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="4" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="6" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 6: Referees -->
+  <section id="section-6" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Referees</h2>
+    <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">Please provide two referees who have witnessed your work with the dying, or who have worked alongside you in a related field.</p>
+
+    <h3 style="margin: 0 0 0.75rem; font-size: 1.1rem;">Referee 1 *</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+      <div class="form-field">
+        <label for="ref1Name" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Full Name *</label>
+        <input id="ref1Name" type="text" placeholder="Full name"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref1Role" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Role / Relationship *</label>
+        <input id="ref1Role" type="text" placeholder="e.g. Nurse, Social Worker"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref1Email" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Email *</label>
+        <input id="ref1Email" type="email" placeholder="referee@example.com"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref1Phone" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Phone *</label>
+        <input id="ref1Phone" type="tel" placeholder="+64 21 123 4567"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+    </div>
+
+    <h3 style="margin: 1.5rem 0 0.75rem; font-size: 1.1rem;">Referee 2 *</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+      <div class="form-field">
+        <label for="ref2Name" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Full Name *</label>
+        <input id="ref2Name" type="text" placeholder="Full name"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref2Role" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Role / Relationship *</label>
+        <input id="ref2Role" type="text" placeholder="e.g. Nurse, Social Worker"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref2Email" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Email *</label>
+        <input id="ref2Email" type="email" placeholder="referee@example.com"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+      <div class="form-field">
+        <label for="ref2Phone" style="display: block; font-weight: 600; margin-bottom: 0.35rem;">Phone *</label>
+        <input id="ref2Phone" type="tel" placeholder="+64 21 123 4567"
+          style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;" />
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="5" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="7" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue</button>
+    </div>
+  </section>
+
+  <!-- Step 7: Declarations -->
+  <section id="section-7" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Declarations</h2>
+    <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">Please confirm all statements below to proceed.</p>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declAccuracy" style="margin-top: 0.25rem;" />
+          <span>I confirm the information provided is accurate and complete. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declEthics" style="margin-top: 0.25rem;" />
+          <span>I have read and agree to the ELDAA Code of Ethics. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declScope" style="margin-top: 0.25rem;" />
+          <span>I have read and understand the Scope of Practice. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declDoulaServices" style="margin-top: 0.25rem;" />
+          <span>I agree to actively provide Doula Services as part of my professional membership. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declInterview" style="margin-top: 0.25rem;" />
+          <span>I agree to an interview by the committee if required. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declProfessionalDev" style="margin-top: 0.25rem;" />
+          <span>I commit to completing 10 hours of professional development per year. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declCriminalCheck" style="margin-top: 0.25rem;" />
+          <span>I agree to provide a Ministry of Justice criminal record check. *</span>
+        </label>
+      </div>
+      <div class="declaration-item">
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="declMeetings" style="margin-top: 0.25rem;" />
+          <span>I agree to attend regular ELDAA meetings and support my local community. *</span>
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button class="button-secondary" data-goto="6" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
+      <button class="button" data-next="8" style="padding: 0.6rem 1.5rem; border-radius: 8px;">Continue to Documents</button>
+    </div>
+  </section>
+
+  <!-- Step 8: Document Upload -->
+  <section id="section-8" class="card" style="margin-top: 1rem; display: none;">
+    <h2 style="margin: 0 0 1rem; font-size: 1.25rem;">Document Upload</h2>
+    <p style="color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Upload your supporting documents below. You can upload multiple files per category.</p>
 
     <div id="progress-info" style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg); border-radius: 8px;">
-      <p style="margin: 0 0 0.5rem; font-weight: 600;">
-        Documents Uploaded: <span id="upload-count">0</span> / 7
-      </p>
+      <p style="margin: 0 0 0.5rem; font-weight: 600;">Documents: <span id="upload-count">0</span> / 6 required categories</p>
       <p id="upload-status-text" style="margin: 0; color: var(--muted); font-size: 0.9rem;"></p>
     </div>
 
-    <div id="document-list" style="display: flex; flex-direction: column; gap: 1rem;">
-      <!-- Document items will be generated here -->
-    </div>
+    <div id="document-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
 
     <div id="payment-section" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
       <button id="proceed-payment-btn" class="button" style="width: 100%;" disabled>
-        Upload all documents to continue
+        Complete all sections to continue
       </button>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-start;">
+      <button class="button-secondary" data-goto="7" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Back</button>
     </div>
   </section>
 
@@ -121,183 +404,384 @@ const token = Astro.url.searchParams.get("token");
   <section id="error-section" class="card" style="margin-top: 1rem; display: none;">
     <h2 style="margin: 0 0 1rem; color: var(--warn);">Error</h2>
     <p id="error-message"></p>
-    <a href="/professional/apply" class="button" style="display: inline-block; margin-top: 1rem;">
-      Start New Application
-    </a>
+    <a href="/professional/apply" class="button" style="display: inline-block; margin-top: 1rem;">Start New Application</a>
   </section>
-<style>
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-  }
 
-  @media (max-width: 480px) {
-    .form-row {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
-
+  <style>
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+  .step-dot { width: 32px; height: 6px; border-radius: 3px; background: var(--border); transition: background 0.2s; }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done { background: var(--ok); }
+  .course-row, .experience-row { padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .yn-question, .declaration-item { padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; }
+  .competency-item { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+  .competency-item.checked { border-color: var(--ok); background: #f0fdf4; }
+  </style>
 </BaseLayout>
 
 <script is:inline define:vars={{ token }}>
-  const REQUIRED_DOCS = [
-    { id: "application", label: "Application Form", description: "Completed PM application form" },
-    { id: "training", label: "Certificates of Training", description: "Evidence of completed training" },
-    { id: "ethics", label: "Code of Ethics", description: "Signed ELDAA Code of Ethics and Scope of Practice" },
-    { id: "criminal", label: "Criminal Records Check", description: "Background check" },
-    { id: "advance_care", label: "Advanced Care Planning (NZ)", description: "4 modules completed" },
-    { id: "assisted_dying", label: "Assisted Dying Training", description: "3 modules completed" },
-    { id: "fundamentals", label: "Fundamentals of Palliative Care", description: "4 modules (Hospice NZ online)" },
+  const STEPS = [
+    { id: "register", label: "Start" },
+    { id: "section-1", label: "About You" },
+    { id: "section-2", label: "Training" },
+    { id: "section-3", label: "Experience" },
+    { id: "section-4", label: "Requirements" },
+    { id: "section-5", label: "Competencies" },
+    { id: "section-6", label: "Referees" },
+    { id: "section-7", label: "Declarations" },
+    { id: "section-8", label: "Documents" },
   ];
 
-  function showSection(id) {
+  const REQUIRED_DOCS = [
+    { id: "training", label: "Certificates of Training", description: "Evidence of completed training" },
+    { id: "ethics", label: "Code of Ethics", description: "Signed ELDAA Code of Ethics and Scope of Practice" },
+    { id: "criminal", label: "Criminal Records Check", description: "Ministry of Justice background check" },
+    { id: "advance_care", label: "Advanced Care Planning (NZ)", description: "4 modules completed" },
+    { id: "assisted_dying", label: "Assisted Dying Training", description: "Te Whatu Ora, 3 modules completed" },
+    { id: "fundamentals", label: "Fundamentals of Palliative Care", description: "Hospice NZ, 4 online modules" },
+  ];
+
+  const OPTIONAL_DOCS = [
+    { id: "insurance", label: "Professional Indemnity Insurance", description: "Optional but recommended" },
+  ];
+
+  const COMPETENCIES = [
+    "Effective Communication Skills — deep listening, open-ended questioning, holding space",
+    "Advocacy & Empowerment — navigating medical/healthcare systems",
+    "Understanding of Cultural & Spiritual Diversity",
+    "Shows initiative — anticipate needs, seek information",
+    "Compassionate Presence — quiet, calm presence, follow the lead",
+    "Ongoing Education & Development",
+    "Self-Care & Professional Boundaries",
+    "Knowledge of End-of-Life Options — palliative care, hospice, VAD, home death",
+    "Business acumen — contractual agreement, sliding scale, timely invoices",
+    "Networking & Referrals",
+    "Holistic support — emotional, spiritual, cultural, practical, social",
+    "Illness journey advocacy and empowerment",
+    "Legacy & Life Review",
+    "Holistic Advance Care Planning",
+    "Vigil Planning & Support",
+    "Practical Assistance during illness",
+    "Funeral & Memorial Planning",
+    "Body care and After Death care",
+    "Grief & Bereavement Awareness",
+    "Interdisciplinary Collaboration",
+    "Mentorship — willing to mentor other ELDAA members",
+  ];
+
+  let currentStep = 0;
+  let applicantId = null;
+  let courses = [];
+  let experiences = [];
+  let competencyStates = {};
+
+  function showStep(n) {
     document.querySelectorAll("section.card").forEach(s => s.style.display = "none");
-    document.getElementById(id).style.display = "block";
+    const section = document.getElementById(STEPS[n].id);
+    if (section) section.style.display = "block";
+
+    // Update step indicator
+    const indicator = document.getElementById("step-indicator");
+    if (indicator) {
+      indicator.style.display = n === 0 ? "none" : "block";
+      document.getElementById("step-label").textContent = `Step ${Math.min(n, 8)} of 8`;
+      document.getElementById("step-name").textContent = STEPS[n]?.label || "";
+
+      const dotsContainer = document.getElementById("step-dots");
+      dotsContainer.innerHTML = "";
+      for (let i = 1; i <= 8; i++) {
+        const dot = document.createElement("div");
+        dot.className = "step-dot" + (i < n ? " done" : i === n ? " active" : "");
+        dotsContainer.appendChild(dot);
+      }
+    }
+
+    currentStep = n;
+
+    if (n === 8) renderDocuments();
   }
 
-  function getDocLabel(id) {
-    const doc = REQUIRED_DOCS.find(d => d.id === id);
-    return doc ? doc.label : id;
-  }
-
-  // Registration
-  const registerBtn = document.getElementById("register-btn");
-  const registerMessage = document.getElementById("register-message");
-
-  if (registerBtn) {
-    registerBtn.addEventListener("click", async () => {
-      const firstName = document.getElementById("firstName").value.trim();
-      const lastName = document.getElementById("lastName").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const email = document.getElementById("email").value.trim();
-
-      if (!firstName || !lastName || !email) {
-        registerMessage.textContent = "Please enter your first name, last name, and email.";
-        registerMessage.style.display = "block";
-        return;
-      }
-
-      registerBtn.disabled = true;
-      registerBtn.textContent = "Sending...";
-
-      try {
-        const res = await fetch("/api/professional/apply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firstName, lastName, phone, email })
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-          let message = `Application started!`;
-          if (data.resumeLink) {
-            message += `<br><br><strong>Your upload link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
-          }
-          // message += `<br><br>Check your inbox (and spam folder) for the email.`;
-          registerMessage.innerHTML = message;
-          registerMessage.style.display = "block";
-          registerMessage.classList.add("status-ok");
-          registerBtn.textContent = "Link Created";
-        } else {
-          registerMessage.textContent = data.error || "Failed to create application.";
-          registerMessage.style.display = "block";
-          registerBtn.disabled = false;
-          registerBtn.textContent = "Start Application";
-        }
-      } catch (err) {
-        registerMessage.textContent = "Network error. Please try again.";
-        registerMessage.style.display = "block";
-        registerBtn.disabled = false;
-        registerBtn.textContent = "Start Application";
-      }
+  // Build competency grid
+  function buildCompetencyGrid() {
+    const grid = document.getElementById("competencies-grid");
+    grid.innerHTML = "";
+    COMPETENCIES.forEach((comp, i) => {
+      const item = document.createElement("div");
+      item.className = "competency-item" + (competencyStates[i] ? " checked" : "");
+      item.innerHTML = `<label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+        <input type="checkbox" data-comp="${i}" ${competencyStates[i] ? "checked" : ""} />
+        <span>${comp}</span>
+      </label>`;
+      item.querySelector("input").addEventListener("change", (e) => {
+        competencyStates[i] = e.target.checked;
+        item.classList.toggle("checked", e.target.checked);
+      });
+      grid.appendChild(item);
     });
   }
 
-  // If token present, load status
-  if (token) {
-    (async () => {
-      try {
-        const res = await fetch(`/api/professional/apply?token=${encodeURIComponent(token)}`);
-        const data = await res.json();
-
-        if (data.status === "new") {
-          showSection("registration-section");
-        } else if (data.status === "paid") {
-          document.getElementById("welcome-message").textContent = `Welcome, ${data.firstName}`;
-          showSection("paid-section");
-        } else if (data.status === "partial" || data.status === "complete") {
-          document.getElementById("welcome-message").textContent = `Welcome back, ${data.firstName}`;
-          showSection("upload-section");
-          renderUploadInterface(data);
-        } else if (data.error) {
-          document.getElementById("error-message").textContent = data.error;
-          showSection("error-section");
-        }
-      } catch (err) {
-        document.getElementById("error-message").textContent = "Failed to load application.";
-        showSection("error-section");
-      }
-    })();
+  // Courses
+  function addCourseRow(data = {}) {
+    const list = document.getElementById("courses-list");
+    const idx = courses.length;
+    courses.push(data);
+    const row = document.createElement("div");
+    row.className = "course-row";
+    row.id = `course-${idx}`;
+    row.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr 100px auto; gap: 0.5rem; align-items: end;">
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600;">Course Name *</label>
+          <input type="text" data-course="name" value="${data.name || ""}" placeholder="e.g. EOL Doula Foundation"
+            style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" />
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600;">Provider *</label>
+          <input type="text" data-course="provider" value="${data.provider || ""}" placeholder="e.g. ELDAA"
+            style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" />
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600;">Year *</label>
+          <input type="text" data-course="year" value="${data.year || ""}" placeholder="2024"
+            style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" />
+        </div>
+        <button type="button" class="remove-course" data-idx="${idx}"
+          style="padding: 0.5rem; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); background: none; cursor: pointer; font-size: 1.2rem; line-height: 1;">&times;</button>
+      </div>`;
+    row.querySelector(".remove-course").addEventListener("click", () => {
+      courses[idx] = null;
+      row.style.display = "none";
+    });
+    list.appendChild(row);
   }
 
-  function renderUploadInterface(data) {
-    const uploaded = data.docsUploaded || [];
-    const count = uploaded.length;
-    document.getElementById("upload-count").textContent = count;
-    document.getElementById("upload-status-text").textContent =
-      count === 7 ? "All documents uploaded!" : `${7 - count} document(s) remaining`;
+  document.getElementById("add-course-btn").addEventListener("click", () => addCourseRow());
 
+  // Experience rows
+  function addExperienceRow(data = {}) {
+    const list = document.getElementById("experience-list");
+    const idx = experiences.length;
+    experiences.push(data);
+    const row = document.createElement("div");
+    row.className = "experience-row";
+    row.id = `exp-${idx}`;
+    row.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <div>
+            <label style="font-size: 0.8rem; font-weight: 600;">Role / Context *</label>
+            <textarea data-exp="role" rows="2" placeholder="Describe the role or context"
+              style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; resize: vertical;">${data.role || ""}</textarea>
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; font-weight: 600;">Skills that relate to EOL *</label>
+            <textarea data-exp="skills" rows="2" placeholder="Skills used"
+              style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; resize: vertical;">${data.skills || ""}</textarea>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="remove-exp" data-idx="${idx}"
+            style="padding: 0.25rem 0.75rem; border: 1px solid var(--warn); border-radius: 4px; color: var(--warn); background: none; cursor: pointer; font-size: 0.8rem;">Remove</button>
+        </div>
+      </div>`;
+    row.querySelector(".remove-exp").addEventListener("click", () => {
+      experiences[idx] = null;
+      row.style.display = "none";
+    });
+    list.appendChild(row);
+  }
+
+  document.getElementById("add-experience-btn").addEventListener("click", () => addExperienceRow());
+
+  // Auto-save form data to server
+  async function saveFormData() {
+    if (!window.__applicantId__) return;
+    try {
+      const payload = {
+        dateOfBirth: document.getElementById("dateOfBirth")?.value || "",
+        ethnicity: document.getElementById("ethnicity")?.value || "",
+        address: document.getElementById("address")?.value || "",
+        postalAddress: document.getElementById("postalAddress")?.value || "",
+        businessName: document.getElementById("businessName")?.value || "",
+        website: document.getElementById("website")?.value || "",
+        qualifications: JSON.stringify(courses.filter(Boolean).map(c => ({
+          name: document.querySelector(`#course-${courses.indexOf(c)} [data-course="name"]`)?.value || c.name,
+          provider: document.querySelector(`#course-${courses.indexOf(c)} [data-course="provider"]`)?.value || c.provider,
+          year: document.querySelector(`#course-${courses.indexOf(c)} [data-course="year"]`)?.value || c.year,
+        }))),
+        experience: JSON.stringify(experiences.filter(Boolean).map(e => ({
+          role: document.querySelector(`#exp-${experiences.indexOf(e)} [data-exp="role"]`)?.value || e.role,
+          skills: document.querySelector(`#exp-${experiences.indexOf(e)} [data-exp="skills"]`)?.value || e.skills,
+        }))),
+        furtherRequirements: JSON.stringify({
+          agreeDoulaServices: document.getElementById("agreeDoulaServices")?.checked ? "TRUE" : "",
+          agreeInterview: document.getElementById("agreeInterview")?.checked ? "TRUE" : "",
+          commitProfessionalDev: document.getElementById("commitProfessionalDev")?.checked ? "TRUE" : "",
+          willInsurance: document.getElementById("willInsurance")?.checked ? "TRUE" : "",
+          listDirectory: document.getElementById("listDirectory")?.checked ? "TRUE" : "",
+          provideCriminalCheck: document.getElementById("provideCriminalCheck")?.checked ? "TRUE" : "",
+          attendMeetings: document.getElementById("attendMeetings")?.checked ? "TRUE" : "",
+          workRemotely: document.getElementById("workRemotely")?.checked ? "TRUE" : "",
+        }),
+        coreCompetencies: JSON.stringify(Object.values(competencyStates)),
+        referee1Name: document.getElementById("ref1Name")?.value || "",
+        referee1Role: document.getElementById("ref1Role")?.value || "",
+        referee1Email: document.getElementById("ref1Email")?.value || "",
+        referee1Phone: document.getElementById("ref1Phone")?.value || "",
+        referee2Name: document.getElementById("ref2Name")?.value || "",
+        referee2Role: document.getElementById("ref2Role")?.value || "",
+        referee2Email: document.getElementById("ref2Email")?.value || "",
+        referee2Phone: document.getElementById("ref2Phone")?.value || "",
+        declarationAccuracy: document.getElementById("declAccuracy")?.checked ? "TRUE" : "",
+        declarationEthics: document.getElementById("declEthics")?.checked ? "TRUE" : "",
+        declarationScope: document.getElementById("declScope")?.checked ? "TRUE" : "",
+        declarationDoulaServices: document.getElementById("declDoulaServices")?.checked ? "TRUE" : "",
+        declarationInterview: document.getElementById("declInterview")?.checked ? "TRUE" : "",
+        declarationProfessionalDev: document.getElementById("declProfessionalDev")?.checked ? "TRUE" : "",
+        declarationCriminalCheck: document.getElementById("declCriminalCheck")?.checked ? "TRUE" : "",
+        declarationMeetings: document.getElementById("declMeetings")?.checked ? "TRUE" : "",
+        declarationSignedAt: new Date().toISOString(),
+      };
+
+      await fetch("/api/professional/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch {}
+  }
+
+  document.querySelectorAll("[data-next]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (validateStep(currentStep)) {
+        saveStepData(currentStep);
+        saveFormData();
+        showStep(parseInt(btn.dataset.next));
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-goto]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      saveFormData();
+      showStep(parseInt(btn.dataset.goto));
+    });
+  });
+
+  function validateStep(n) {
+    if (n === 0) {
+      const f = document.getElementById("reg-firstName").value.trim();
+      const l = document.getElementById("reg-lastName").value.trim();
+      const e = document.getElementById("reg-email").value.trim();
+      if (!f || !l || !e) { alert("Please fill in your name and email."); return false; }
+      return true;
+    }
+    if (n === 1) return true; // courses optional
+    if (n === 2) return true; // experience optional
+    if (n === 4) { // Further Requirements - check required Y/N
+      const required = ["agreeDoulaServices", "agreeInterview", "commitProfessionalDev", "listDirectory", "provideCriminalCheck", "attendMeetings", "workRemotely"];
+      for (const id of required) {
+        const el = document.getElementById(id);
+        if (el && !el.checked) {
+          alert("Please answer all required questions.");
+          return false;
+        }
+      }
+      return true;
+    }
+    if (n === 5) return true; // competencies optional
+    if (n === 6) { // Referees
+      const fields = ["ref1Name", "ref1Role", "ref1Email", "ref1Phone", "ref2Name", "ref2Role", "ref2Email", "ref2Phone"];
+      for (const id of fields) {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) {
+          alert("Please fill in all referee fields.");
+          return false;
+        }
+      }
+      return true;
+    }
+    if (n === 7) { // Declarations
+      const decls = ["declAccuracy", "declEthics", "declScope", "declDoulaServices", "declInterview", "declProfessionalDev", "declCriminalCheck", "declMeetings"];
+      for (const id of decls) {
+        const el = document.getElementById(id);
+        if (el && !el.checked) {
+          alert("Please confirm all declarations to proceed.");
+          return false;
+        }
+      }
+      return true;
+    }
+    return true;
+  }
+
+  function saveStepData(n) {
+    // Data is read directly from DOM elements in submitFormData()
+  }
+
+  // Document rendering
+  function renderDocuments() {
+    const uploaded = window.__docsUploaded__ || {};
+    const allDocs = [...REQUIRED_DOCS, ...OPTIONAL_DOCS];
     const list = document.getElementById("document-list");
     list.innerHTML = "";
 
-    REQUIRED_DOCS.forEach(doc => {
-      const isUploaded = uploaded.includes(doc.id);
+    let requiredComplete = 0;
+    allDocs.forEach(doc => {
+      const files = uploaded[doc.id] || [];
+      const isRequired = REQUIRED_DOCS.some(d => d.id === doc.id);
+      const isUploaded = files.length > 0;
+      if (isRequired && isUploaded) requiredComplete++;
+
       const item = document.createElement("div");
-      item.className = "doc-item";
-      item.style.cssText = `
-        padding: 1rem;
-        border: 1px solid ${isUploaded ? "var(--ok)" : "var(--border)"};
-        border-radius: 8px;
-        background: ${isUploaded ? "#f0fdf4" : "var(--surface)"};
-      `;
+      item.style.cssText = `padding: 1rem; border: 1px solid ${isUploaded ? "var(--ok)" : "var(--border)"}; border-radius: 8px; background: ${isUploaded ? "#f0fdf4" : "var(--surface)"};`;
+
+      let filesHtml = "";
+      files.forEach(f => {
+        filesHtml += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+          <div>
+            <span style="font-size: 0.85rem;">${f.filename}</span>
+            <span style="font-size: 0.75rem; color: var(--muted); margin-left: 0.5rem;">${new Date(f.uploadedAt).toLocaleDateString()}</span>
+          </div>
+          <button class="delete-file-btn" data-fileid="${f.fileId}" data-doctype="${doc.id}" style="padding: 0.2rem 0.6rem; border: 1px solid var(--warn); border-radius: 4px; color: var(--warn); background: none; cursor: pointer; font-size: 0.8rem;">Delete</button>
+        </div>`;
+      });
+
       item.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <p style="margin: 0; font-weight: 600;">${doc.label}</p>
-            <p style="margin: 0.25rem 0 0; color: var(--muted); font-size: 0.85rem;">${doc.description}</p>
+            <p style="margin: 0; font-weight: 600;">${doc.label} ${isRequired ? "*" : "(optional)"}</p>
+            <p style="margin: 0.25rem 0 0; color: var(--muted); font-size: 0.8rem;">${doc.description}</p>
           </div>
-          <span class="status-badge" style="
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: ${isUploaded ? "var(--ok)" : "#f3f4f6"};
-            color: ${isUploaded ? "#fff" : "var(--muted)"};
-          ">${isUploaded ? "Uploaded" : "Required"}</span>
+          <span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: ${isUploaded ? "var(--ok)" : "#f3f4f6"}; color: ${isUploaded ? "#fff" : "var(--muted)"};">${isUploaded ? files.length + " file(s)" : "Required"}</span>
         </div>
-        ${!isUploaded ? `
-          <div style="margin-top: 0.75rem;">
-            <input type="file" id="file-${doc.id}" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx" style="display: none;" />
-            <button class="upload-btn" data-doc="${doc.id}" style="
-              padding: 0.5rem 1rem;
-              border: 1px solid var(--accent);
-              border-radius: 6px;
-              background: var(--surface);
-              color: var(--accent);
-              cursor: pointer;
-              font-size: 0.9rem;
-            ">Choose File</button>
-            <span class="filename" style="margin-left: 0.5rem; color: var(--muted); font-size: 0.85rem;"></span>
-          </div>
-        ` : ""}
-      `;
+        ${filesHtml}
+        <div style="margin-top: 0.75rem;">
+          <input type="file" id="file-${doc.id}" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx" style="display: none;" />
+          <button class="upload-btn" data-doc="${doc.id}" style="padding: 0.4rem 0.8rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--surface); color: var(--accent); cursor: pointer; font-size: 0.85rem;">${isUploaded ? "Upload More" : "Choose File"}</button>
+        </div>`;
       list.appendChild(item);
     });
 
-    // Add upload handlers
+    document.getElementById("upload-count").textContent = requiredComplete;
+    document.getElementById("upload-status-text").textContent =
+      requiredComplete === 6 ? "All required documents uploaded!" : `${6 - requiredComplete} category(ies) remaining`;
+
+    // Payment button
+    const paymentBtn = document.getElementById("proceed-payment-btn");
+    if (requiredComplete === 6) {
+      paymentBtn.disabled = false;
+      paymentBtn.textContent = "Proceed to Payment";
+      paymentBtn.onclick = goToPayment;
+    }
+
+    // Setup upload handlers
+    setupUploadHandlers();
+    setupDeleteHandlers();
+  }
+
+  function setupUploadHandlers() {
     document.querySelectorAll(".upload-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const docId = btn.dataset.doc;
@@ -312,7 +796,6 @@ const token = Astro.url.searchParams.get("token");
         if (!file) return;
 
         const btn = document.querySelector(`.upload-btn[data-doc="${docId}"]`);
-        const filenameSpan = btn.nextElementSibling;
         btn.disabled = true;
         btn.textContent = "Uploading...";
 
@@ -329,75 +812,282 @@ const token = Astro.url.searchParams.get("token");
 
           const data = await res.json();
           if (data.success) {
-            filenameSpan.textContent = file.name;
-            btn.textContent = "Uploaded";
-            btn.style.background = "var(--ok)";
-            btn.style.color = "#fff";
-            btn.style.borderColor = "var(--ok)";
-            updateProgress();
+            if (!window.__docsUploaded__[docId]) window.__docsUploaded__[docId] = [];
+            window.__docsUploaded__[docId].push({ fileId: data.fileId || data.filename, filename: file.name, uploadedAt: new Date().toISOString() });
+            renderDocuments();
           } else {
             btn.disabled = false;
-            btn.textContent = "Choose File";
+            btn.textContent = "Upload More";
             alert(data.error || "Upload failed");
           }
         } catch (err) {
           btn.disabled = false;
-          btn.textContent = "Choose File";
+          btn.textContent = "Upload More";
           alert("Upload failed");
         }
       });
     });
+  }
 
-    // Payment button
-    const paymentBtn = document.getElementById("proceed-payment-btn");
-    if (data.status === "complete") {
-      paymentBtn.disabled = false;
-      paymentBtn.textContent = "Proceed to Payment";
-      paymentBtn.addEventListener("click", async () => {
-        paymentBtn.disabled = true;
-        paymentBtn.textContent = "Loading...";
+  function setupDeleteHandlers() {
+    document.querySelectorAll(".delete-file-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const fileId = btn.dataset.fileid;
+        const docType = btn.dataset.doctype;
+        if (!confirm("Delete this file?")) return;
+        btn.textContent = "...";
+        btn.disabled = true;
 
         try {
-          const res = await fetch("/api/professional/upload-complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token })
-          });
-
+          const res = await fetch(`/api/professional/delete-file?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`);
           const data = await res.json();
-          if (data.url) {
-            window.location.href = data.url;
+          if (data.success) {
+            window.__docsUploaded__[docType] = (window.__docsUploaded__[docType] || []).filter(f => f.fileId !== fileId);
+            renderDocuments();
           } else {
-            alert(data.error || "Failed to create payment session");
-            paymentBtn.disabled = false;
-            paymentBtn.textContent = "Proceed to Payment";
+            btn.textContent = "Delete";
+            btn.disabled = false;
+            alert(data.error || "Delete failed");
           }
-        } catch (err) {
-          alert("Failed to create payment session");
-          paymentBtn.disabled = false;
-          paymentBtn.textContent = "Proceed to Payment";
+        } catch {
+          btn.textContent = "Delete";
+          btn.disabled = false;
+          alert("Delete failed");
         }
       });
+    });
+  }
+
+  async function goToPayment() {
+    const btn = document.getElementById("proceed-payment-btn");
+    btn.disabled = true;
+    btn.textContent = "Loading...";
+
+    try {
+      const res = await fetch("/api/professional/upload-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Proceed to Payment";
+        alert(data.error || "Failed to create payment session");
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Proceed to Payment";
+      alert("Failed to create payment session");
     }
   }
 
-  function updateProgress() {
-    // Re-fetch status to get updated count
-    fetch(`/api/professional/apply?token=${encodeURIComponent(token)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.docsUploaded) {
-          const count = data.docsUploaded.length;
-          document.getElementById("upload-count").textContent = count;
-          document.getElementById("upload-status-text").textContent =
-            count === 7 ? "All documents uploaded!" : `${7 - count} document(s) remaining`;
+  // Registration
+  document.getElementById("register-btn").addEventListener("click", async () => {
+    const firstName = document.getElementById("reg-firstName").value.trim();
+    const lastName = document.getElementById("reg-lastName").value.trim();
+    const phone = document.getElementById("reg-phone").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
 
-          if (count === 7) {
-            const btn = document.getElementById("proceed-payment-btn");
-            btn.disabled = false;
-            btn.textContent = "Proceed to Payment";
-          }
-        }
+    if (!firstName || !lastName || !email) {
+      document.getElementById("register-message").textContent = "Please enter your first name, last name, and email.";
+      document.getElementById("register-message").style.display = "block";
+      return;
+    }
+
+    const btn = document.getElementById("register-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+
+    try {
+      const res = await fetch("/api/professional/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phone,
+          email,
+          dateOfBirth: "",
+          ethnicity: "",
+          address: "",
+          postalAddress: "",
+          businessName: "",
+          website: "",
+          qualifications: "[]",
+          experience: "[]",
+          furtherRequirements: "{}",
+          coreCompetencies: "[]",
+          referee1Name: "",
+          referee1Role: "",
+          referee1Email: "",
+          referee1Phone: "",
+          referee2Name: "",
+          referee2Role: "",
+          referee2Email: "",
+          referee2Phone: "",
+          declarationAccuracy: "",
+          declarationEthics: "",
+          declarationScope: "",
+          declarationDoulaServices: "",
+          declarationInterview: "",
+          declarationProfessionalDev: "",
+          declarationCriminalCheck: "",
+          declarationMeetings: "",
+          declarationSignedAt: new Date().toISOString(),
+        })
       });
+
+      const data = await res.json();
+      if (data.success) {
+        applicantId = data.applicantId;
+        window.__applicantId__ = data.applicantId;
+        window.__token__ = data.resumeLink?.split("token=")[1] || token;
+        let message = `Application started!`;
+        if (data.resumeLink) {
+          message += `<br><br><strong>Your upload link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
+        }
+        document.getElementById("register-message").innerHTML = message;
+        document.getElementById("register-message").style.display = "block";
+        btn.textContent = "Link Created";
+      } else {
+        document.getElementById("register-message").textContent = data.error || "Failed.";
+        document.getElementById("register-message").style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Start Application";
+      }
+    } catch (err) {
+      document.getElementById("register-message").textContent = "Network error.";
+      document.getElementById("register-message").style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Start Application";
+    }
+  });
+
+  // Resume flow
+  if (token) {
+    (async () => {
+      try {
+        const res = await fetch(`/api/professional/apply?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        window.__docsUploaded__ = {};
+
+        if (data.status === "paid") {
+          document.getElementById("step-indicator").style.display = "none";
+          showStep(0);
+          document.getElementById("section-register").style.display = "none";
+          const paidSection = document.getElementById("paid-section");
+          paidSection.style.display = "block";
+          return;
+        }
+
+        if (data.status === "new" || data.status === "error") {
+          document.getElementById("step-indicator").style.display = "none";
+          showStep(0);
+          return;
+        }
+
+        // Pre-populate form
+        if (data.firstName) document.getElementById("reg-firstName").value = data.firstName || "";
+        if (data.lastName) document.getElementById("reg-lastName").value = data.lastName || "";
+        if (data.email) document.getElementById("reg-email").value = data.email || "";
+        if (data.phone) document.getElementById("reg-phone").value = data.phone || "";
+
+        // Hide registration, show wizard
+        document.getElementById("section-register").style.display = "none";
+
+        // Pre-populate step 1
+        if (data.dateOfBirth) document.getElementById("dateOfBirth").value = data.dateOfBirth;
+        if (data.ethnicity) document.getElementById("ethnicity").value = data.ethnicity;
+        if (data.address) document.getElementById("address").value = data.address;
+        if (data.postalAddress) document.getElementById("postalAddress").value = data.postalAddress;
+        if (data.businessName) document.getElementById("businessName").value = data.businessName;
+        if (data.website) document.getElementById("website").value = data.website;
+
+        document.getElementById("step-indicator").style.display = "flex";
+
+        // Pre-populate courses
+        try {
+          const quals = JSON.parse(data.qualifications || "[]");
+          quals.forEach(q => addCourseRow(q));
+        } catch {}
+
+        // Pre-populate experience
+        try {
+          const exps = JSON.parse(data.experience || "[]");
+          exps.forEach(e => addExperienceRow(e));
+        } catch {}
+
+        // Pre-populate further requirements
+        try {
+          const fr = JSON.parse(data.furtherRequirements || "{}");
+          if (fr.agreeDoulaServices) document.getElementById("agreeDoulaServices").checked = true;
+          if (fr.agreeInterview) document.getElementById("agreeInterview").checked = true;
+          if (fr.commitProfessionalDev) document.getElementById("commitProfessionalDev").checked = true;
+          if (fr.willInsurance) document.getElementById("willInsurance").checked = true;
+          if (fr.listDirectory) document.getElementById("listDirectory").checked = true;
+          if (fr.provideCriminalCheck) document.getElementById("provideCriminalCheck").checked = true;
+          if (fr.attendMeetings) document.getElementById("attendMeetings").checked = true;
+          if (fr.workRemotely) document.getElementById("workRemotely").checked = true;
+        } catch {}
+
+        // Pre-populate competencies
+        try {
+          const comps = JSON.parse(data.coreCompetencies || "[]");
+          comps.forEach((c, i) => { competencyStates[i] = c; });
+          buildCompetencyGrid();
+        } catch {}
+
+        // Pre-populate referees
+        if (data.referee1) {
+          document.getElementById("ref1Name").value = data.referee1.name || "";
+          document.getElementById("ref1Role").value = data.referee1.role || "";
+          document.getElementById("ref1Email").value = data.referee1.email || "";
+          document.getElementById("ref1Phone").value = data.referee1.phone || "";
+        }
+        if (data.referee2) {
+          document.getElementById("ref2Name").value = data.referee2.name || "";
+          document.getElementById("ref2Role").value = data.referee2.role || "";
+          document.getElementById("ref2Email").value = data.referee2.email || "";
+          document.getElementById("ref2Phone").value = data.referee2.phone || "";
+        }
+
+        // Pre-populate example texts
+        try {
+          const exps = JSON.parse(data.experience || "[]");
+          if (exps[0]?.description) document.getElementById("example1").value = exps[0].description;
+          if (exps[1]?.description) document.getElementById("example2").value = exps[1].description;
+          if (exps[2]?.description) document.getElementById("example3").value = exps[2].description;
+        } catch {}
+
+        // Pre-populate declarations
+        if (data.declarationAccuracy === "TRUE") document.getElementById("declAccuracy").checked = true;
+        if (data.declarationEthics === "TRUE") document.getElementById("declEthics").checked = true;
+        if (data.declarationScope === "TRUE") document.getElementById("declScope").checked = true;
+        if (data.declarationDoulaServices === "TRUE") document.getElementById("declDoulaServices").checked = true;
+        if (data.declarationInterview === "TRUE") document.getElementById("declInterview").checked = true;
+        if (data.declarationProfessionalDev === "TRUE") document.getElementById("declProfessionalDev").checked = true;
+        if (data.declarationCriminalCheck === "TRUE") document.getElementById("declCriminalCheck").checked = true;
+        if (data.declarationMeetings === "TRUE") document.getElementById("declMeetings").checked = true;
+
+        // Set docsUploaded
+        if (data.docsUploaded) {
+          window.__docsUploaded__ = data.docsUploaded;
+        }
+
+        // Start at step 1 (About You) or resume based on completion
+        showStep(1);
+      } catch (err) {
+        document.getElementById("step-indicator").style.display = "none";
+        showStep(0);
+      }
+    })();
+  } else {
+    showStep(0);
+    buildCompetencyGrid();
   }
 </script>
