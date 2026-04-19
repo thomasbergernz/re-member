@@ -2,7 +2,6 @@ import { google } from "googleapis";
 import crypto from "node:crypto";
 
 export const REQUIRED_DOC_TYPES = [
-  "application",
   "training",
   "ethics",
   "criminal",
@@ -10,6 +9,8 @@ export const REQUIRED_DOC_TYPES = [
   "assisted_dying",
   "fundamentals",
 ] as const;
+
+export const OPTIONAL_DOC_TYPES = ["insurance"] as const;
 
 export type DocType = (typeof REQUIRED_DOC_TYPES)[number];
 
@@ -20,7 +21,7 @@ export interface UploadStatus {
   phone: string;
   email: string;
   emailHash: string;
-  docs: Partial<Record<DocType, string>>;
+  docs: Partial<Record<DocType, number>>;
   complete: boolean;
   stripeSessionId?: string;
   paid: boolean;
@@ -49,26 +50,55 @@ function getSheetsClient() {
 
 const SHEET_NAME = "Professional Applications";
 
+// 47 columns: A through AU
 const SHEET_HEADERS = [
-  "applicant_id",
-  "email",
-  "first_name",
-  "last_name",
-  "phone",
-  "resume_token",
-  "email_hash",
-  "doc_application",
-  "doc_training",
-  "doc_ethics",
-  "doc_criminal",
-  "doc_advance_care",
-  "doc_assisted_dying",
-  "doc_fundamentals",
-  "complete",
-  "stripe_session",
-  "paid",
-  "created_at",
-  "paid_at",
+  "applicant_id",     // A
+  "email",           // B
+  "first_name",      // C
+  "last_name",       // D
+  "phone",           // E
+  "date_of_birth",   // F
+  "ethnicity",       // G
+  "address",        // H
+  "postal_address",  // I
+  "business_name",   // J
+  "website",        // K
+  "qualifications",  // L  (JSON array)
+  "experience",     // M  (JSON array)
+  "further_requirements", // N  (JSON object of Y/N responses)
+  "core_competencies",    // O  (JSON array of Y/N responses)
+  "referee1_name",        // P
+  "referee1_role",        // Q
+  "referee1_email",       // R
+  "referee1_phone",      // S
+  "referee2_name",        // T
+  "referee2_role",       // U
+  "referee2_email",      // V
+  "referee2_phone",       // W
+  "declaration_accuracy",     // X
+  "declaration_ethics",       // Y
+  "declaration_scope",        // Z
+  "declaration_doula_services",  // AA
+  "declaration_interview",       // AB
+  "declaration_professional_dev", // AC
+  "declaration_criminal_check",   // AD
+  "declaration_meetings",         // AE
+  "declaration_signed_at",        // AF
+  "resume_token",    // AG
+  "email_hash",      // AH
+  "doc_training_count",    // AI
+  "doc_ethics_count",      // AJ
+  "doc_criminal_count",    // AK
+  "doc_advance_care_count",  // AL
+  "doc_assisted_dying_count", // AM
+  "doc_fundamentals_count",   // AN
+  "doc_insurance_count",      // AO
+  "complete",        // AP
+  "stripe_session",  // AQ
+  "paid",           // AR
+  "created_at",     // AS
+  "paid_at",        // AT
+  // AU is spare/reserved
 ];
 
 async function ensureSheetExists(sheets: ReturnType<typeof google.sheets>): Promise<string> {
@@ -106,7 +136,7 @@ async function ensureSheetExists(sheets: ReturnType<typeof google.sheets>): Prom
   // Add headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!A1:S1`,
+    range: `${SHEET_NAME}!A1:AU1`,
     valueInputOption: "RAW",
     requestBody: {
       values: [SHEET_HEADERS],
@@ -126,7 +156,35 @@ export async function createApplicantRow(
   lastName: string,
   phone: string,
   email: string,
-  resumeToken: string
+  resumeToken: string,
+  // New form fields (all optional for backwards compat)
+  dateOfBirth = "",
+  ethnicity = "",
+  address = "",
+  postalAddress = "",
+  businessName = "",
+  website = "",
+  qualifications = "",
+  experience = "",
+  furtherRequirements = "",
+  coreCompetencies = "",
+  referee1Name = "",
+  referee1Role = "",
+  referee1Email = "",
+  referee1Phone = "",
+  referee2Name = "",
+  referee2Role = "",
+  referee2Email = "",
+  referee2Phone = "",
+  declarationAccuracy = "",
+  declarationEthics = "",
+  declarationScope = "",
+  declarationDoulaServices = "",
+  declarationInterview = "",
+  declarationProfessionalDev = "",
+  declarationCriminalCheck = "",
+  declarationMeetings = "",
+  declarationSignedAt = ""
 ): Promise<void> {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
   if (!spreadsheetId) {
@@ -134,37 +192,63 @@ export async function createApplicantRow(
   }
 
   const sheets = getSheetsClient();
-
-  // Ensure sheet exists (creates if missing)
   await ensureSheetExists(sheets);
 
   const emailHash = hashEmail(email);
 
   const row = [
-    applicantId,
-    email,
-    firstName,
-    lastName,
-    phone,
-    resumeToken,
-    emailHash,
-    "", // doc_application
-    "", // doc_training
-    "", // doc_ethics
-    "", // doc_criminal
-    "", // doc_advance_care
-    "", // doc_assisted_dying
-    "", // doc_fundamentals
-    "FALSE", // complete
-    "", // stripe_session
-    "FALSE", // paid
-    new Date().toISOString(), // created_at
-    "", // paid_at
+    applicantId,     // A
+    email,           // B
+    firstName,       // C
+    lastName,        // D
+    phone,           // E
+    dateOfBirth,     // F
+    ethnicity,       // G
+    address,        // H
+    postalAddress,  // I
+    businessName,   // J
+    website,        // K
+    qualifications,  // L
+    experience,     // M
+    furtherRequirements, // N
+    coreCompetencies,    // O
+    referee1Name,        // P
+    referee1Role,        // Q
+    referee1Email,       // R
+    referee1Phone,      // S
+    referee2Name,        // T
+    referee2Role,       // U
+    referee2Email,      // V
+    referee2Phone,       // W
+    declarationAccuracy,     // X
+    declarationEthics,       // Y
+    declarationScope,        // Z
+    declarationDoulaServices,  // AA
+    declarationInterview,       // AB
+    declarationProfessionalDev, // AC
+    declarationCriminalCheck,   // AD
+    declarationMeetings,         // AE
+    declarationSignedAt,        // AF
+    resumeToken,    // AG
+    emailHash,      // AH
+    0, // doc_training_count  // AI
+    0, // doc_ethics_count    // AJ
+    0, // doc_criminal_count  // AK
+    0, // doc_advance_care_count // AL
+    0, // doc_assisted_dying_count // AM
+    0, // doc_fundamentals_count  // AN
+    0, // doc_insurance_count     // AO
+    "FALSE", // complete   // AP
+    "", // stripe_session  // AQ
+    "FALSE", // paid      // AR
+    new Date().toISOString(), // created_at // AS
+    "", // paid_at         // AT
+    // AU spare
   ];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:S`,
+    range: `${SHEET_NAME}!A:AU`,
     valueInputOption: "RAW",
     requestBody: {
       values: [row],
@@ -172,9 +256,37 @@ export async function createApplicantRow(
   });
 }
 
-export async function updateDocUpload(
+export async function updateApplicantFormData(
   applicantId: string,
-  docType: DocType
+  data: {
+    dateOfBirth?: string;
+    ethnicity?: string;
+    address?: string;
+    postalAddress?: string;
+    businessName?: string;
+    website?: string;
+    qualifications?: string;
+    experience?: string;
+    furtherRequirements?: string;
+    coreCompetencies?: string;
+    referee1Name?: string;
+    referee1Role?: string;
+    referee1Email?: string;
+    referee1Phone?: string;
+    referee2Name?: string;
+    referee2Role?: string;
+    referee2Email?: string;
+    referee2Phone?: string;
+    declarationAccuracy?: string;
+    declarationEthics?: string;
+    declarationScope?: string;
+    declarationDoulaServices?: string;
+    declarationInterview?: string;
+    declarationProfessionalDev?: string;
+    declarationCriminalCheck?: string;
+    declarationMeetings?: string;
+    declarationSignedAt?: string;
+  }
 ): Promise<void> {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
   if (!spreadsheetId) {
@@ -182,9 +294,9 @@ export async function updateDocUpload(
   }
 
   const sheets = getSheetsClient();
-  const timestamp = new Date().toISOString();
+  await ensureSheetExists(sheets);
 
-  // Find the row by applicant_id
+  // Find row by applicant_id
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${SHEET_NAME}!A:A`,
@@ -195,7 +307,7 @@ export async function updateDocUpload(
 
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === applicantId) {
-      rowIndex = i + 1; // 1-indexed for A1 notation
+      rowIndex = i + 1;
       break;
     }
   }
@@ -204,26 +316,106 @@ export async function updateDocUpload(
     throw new Error(`Applicant not found: ${applicantId}`);
   }
 
-  // Map docType to column letter (A=1, H=8 where doc_application now lives after header restructure)
-  const docColumnMap: Record<DocType, string> = {
-    application: "H",
-    training: "I",
-    ethics: "J",
-    criminal: "K",
-    advance_care: "L",
-    assisted_dying: "M",
-    fundamentals: "N",
+  // Build update values - column letter -> value
+  const colMap: Record<string, string> = {
+    F: data.dateOfBirth ?? "",
+    G: data.ethnicity ?? "",
+    H: data.address ?? "",
+    I: data.postalAddress ?? "",
+    J: data.businessName ?? "",
+    K: data.website ?? "",
+    L: data.qualifications ?? "",
+    M: data.experience ?? "",
+    N: data.furtherRequirements ?? "",
+    O: data.coreCompetencies ?? "",
+    P: data.referee1Name ?? "",
+    Q: data.referee1Role ?? "",
+    R: data.referee1Email ?? "",
+    S: data.referee1Phone ?? "",
+    T: data.referee2Name ?? "",
+    U: data.referee2Role ?? "",
+    V: data.referee2Email ?? "",
+    W: data.referee2Phone ?? "",
+    X: data.declarationAccuracy ?? "",
+    Y: data.declarationEthics ?? "",
+    Z: data.declarationScope ?? "",
+    AA: data.declarationDoulaServices ?? "",
+    AB: data.declarationInterview ?? "",
+    AC: data.declarationProfessionalDev ?? "",
+    AD: data.declarationCriminalCheck ?? "",
+    AE: data.declarationMeetings ?? "",
+    AF: data.declarationSignedAt ?? "",
   };
 
-  const column = docColumnMap[docType];
-  const range = `${SHEET_NAME}!${column}${rowIndex}`;
+  // Only update non-empty values; collect ranges
+  const updates: { range: string; values: string[][] }[] = [];
+  for (const [col, val] of Object.entries(colMap)) {
+    if (val !== "") {
+      updates.push({ range: `${SHEET_NAME}!${col}${rowIndex}`, values: [[val]] });
+    }
+  }
+
+  for (const update of updates) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: update.range,
+      valueInputOption: "RAW",
+      requestBody: { values: update.values },
+    });
+  }
+}
+
+export async function updateDocCount(
+  applicantId: string,
+  docType: string,
+  count: number
+): Promise<void> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
+  if (!spreadsheetId) {
+    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
+  }
+
+  const sheets = getSheetsClient();
+
+  // Find row by applicant_id
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A:A`,
+  });
+
+  const rows = result.data.values || [];
+  let rowIndex = -1;
+
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === applicantId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    throw new Error(`Applicant not found: ${applicantId}`);
+  }
+
+  const colMap: Record<string, string> = {
+    training: "AI",
+    ethics: "AJ",
+    criminal: "AK",
+    advance_care: "AL",
+    assisted_dying: "AM",
+    fundamentals: "AN",
+    insurance: "AO",
+  };
+
+  const col = colMap[docType];
+  if (!col) return;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range,
+    range: `${SHEET_NAME}!${col}${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[timestamp]],
+      values: [[count]],
     },
   });
 }
@@ -239,7 +431,6 @@ export async function markComplete(
 
   const sheets = getSheetsClient();
 
-  // Find the row by applicant_id
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${SHEET_NAME}!A:A`,
@@ -259,10 +450,10 @@ export async function markComplete(
     throw new Error(`Applicant not found: ${applicantId}`);
   }
 
-  // Update columns O (complete) and P (stripe_session)
+  // Update columns AP (complete) and AQ (stripe_session)
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!O${rowIndex}:P${rowIndex}`,
+    range: `${SHEET_NAME}!AP${rowIndex}:AQ${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [["TRUE", stripeSessionId]],
@@ -278,7 +469,6 @@ export async function markPaid(applicantId: string): Promise<void> {
 
   const sheets = getSheetsClient();
 
-  // Find the row by applicant_id
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${SHEET_NAME}!A:A`,
@@ -298,69 +488,16 @@ export async function markPaid(applicantId: string): Promise<void> {
     throw new Error(`Applicant not found: ${applicantId}`);
   }
 
-  // Update columns Q (paid) and R (paid_at)
+  // Update columns AR (paid) and AT (paid_at)
   const paidAt = new Date().toISOString();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!Q${rowIndex}:R${rowIndex}`,
+    range: `${SHEET_NAME}!AR${rowIndex}:AT${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [["TRUE", paidAt]],
     },
   });
-}
-
-export async function getUploadStatus(
-  applicantId: string
-): Promise<UploadStatus | null> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  // Find the row by applicant_id
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:S`,
-  });
-
-  const rows = result.data.values || [];
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row[0] === applicantId) {
-      const docs: Partial<Record<DocType, string>> = {};
-      if (row[7]) docs.application = row[7];
-      if (row[8]) docs.training = row[8];
-      if (row[9]) docs.ethics = row[9];
-      if (row[10]) docs.criminal = row[10];
-      if (row[11]) docs.advance_care = row[11];
-      if (row[12]) docs.assisted_dying = row[12];
-      if (row[13]) docs.fundamentals = row[13];
-
-      const complete =
-        REQUIRED_DOC_TYPES.every((type) => docs[type]) || row[14] === "TRUE";
-
-      return {
-        applicantId: row[0],
-        firstName: row[2],
-        lastName: row[3],
-        phone: row[4],
-        email: row[1],
-        emailHash: row[6],
-        docs,
-        complete,
-        stripeSessionId: row[15] || undefined,
-        paid: row[16] === "TRUE",
-        createdAt: row[17],
-        paidAt: row[18] || undefined,
-      };
-    }
-  }
-
-  return null;
 }
 
 export interface ApplicantInfo {
@@ -369,9 +506,47 @@ export interface ApplicantInfo {
   firstName: string;
   lastName: string;
   phone: string;
+  dateOfBirth: string;
+  ethnicity: string;
+  address: string;
+  postalAddress: string;
+  businessName: string;
+  website: string;
+  qualifications: string;
+  experience: string;
+  furtherRequirements: string;
+  coreCompetencies: string;
+  referee1Name: string;
+  referee1Role: string;
+  referee1Email: string;
+  referee1Phone: string;
+  referee2Name: string;
+  referee2Role: string;
+  referee2Email: string;
+  referee2Phone: string;
+  declarationAccuracy: string;
+  declarationEthics: string;
+  declarationScope: string;
+  declarationDoulaServices: string;
+  declarationInterview: string;
+  declarationProfessionalDev: string;
+  declarationCriminalCheck: string;
+  declarationMeetings: string;
+  declarationSignedAt: string;
   resumeToken: string;
+  emailHash: string;
+  docTrainingCount: number;
+  docEthicsCount: number;
+  docCriminalCount: number;
+  docAdvanceCareCount: number;
+  docAssistedDyingCount: number;
+  docFundamentalsCount: number;
+  docInsuranceCount: number;
+  complete: string;
+  stripeSession: string;
+  paid: string;
   createdAt: string;
-  paid: boolean;
+  paidAt: string;
 }
 
 export async function getApplicantByToken(
@@ -383,30 +558,66 @@ export async function getApplicantByToken(
   }
 
   const sheets = getSheetsClient();
-
-  // Ensure sheet exists before reading
   await ensureSheetExists(sheets);
 
-  // Find the row by resume_token
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:S`,
+    range: `${SHEET_NAME}!A:AU`,
   });
 
   const rows = result.data.values || [];
 
+  // Row index: AG = column index 32 (0-based), so row[32] = resumeToken
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row[5] === token) {
+    if (row[32] === token) {
       return {
-        id: row[0],
-        email: row[1],
-        firstName: row[2],
-        lastName: row[3],
-        phone: row[4],
-        resumeToken: row[5],
-        createdAt: row[17],
-        paid: row[16] === "TRUE",
+        id: row[0] ?? "",
+        email: row[1] ?? "",
+        firstName: row[2] ?? "",
+        lastName: row[3] ?? "",
+        phone: row[4] ?? "",
+        dateOfBirth: row[5] ?? "",
+        ethnicity: row[6] ?? "",
+        address: row[7] ?? "",
+        postalAddress: row[8] ?? "",
+        businessName: row[9] ?? "",
+        website: row[10] ?? "",
+        qualifications: row[11] ?? "",
+        experience: row[12] ?? "",
+        furtherRequirements: row[13] ?? "",
+        coreCompetencies: row[14] ?? "",
+        referee1Name: row[15] ?? "",
+        referee1Role: row[16] ?? "",
+        referee1Email: row[17] ?? "",
+        referee1Phone: row[18] ?? "",
+        referee2Name: row[19] ?? "",
+        referee2Role: row[20] ?? "",
+        referee2Email: row[21] ?? "",
+        referee2Phone: row[22] ?? "",
+        declarationAccuracy: row[23] ?? "",
+        declarationEthics: row[24] ?? "",
+        declarationScope: row[25] ?? "",
+        declarationDoulaServices: row[26] ?? "",
+        declarationInterview: row[27] ?? "",
+        declarationProfessionalDev: row[28] ?? "",
+        declarationCriminalCheck: row[29] ?? "",
+        declarationMeetings: row[30] ?? "",
+        declarationSignedAt: row[31] ?? "",
+        resumeToken: row[32] ?? "",
+        emailHash: row[33] ?? "",
+        docTrainingCount: Number(row[34]) || 0,
+        docEthicsCount: Number(row[35]) || 0,
+        docCriminalCount: Number(row[36]) || 0,
+        docAdvanceCareCount: Number(row[37]) || 0,
+        docAssistedDyingCount: Number(row[38]) || 0,
+        docFundamentalsCount: Number(row[39]) || 0,
+        docInsuranceCount: Number(row[40]) || 0,
+        complete: row[41] ?? "FALSE",
+        stripeSession: row[42] ?? "",
+        paid: row[43] ?? "FALSE",
+        createdAt: row[44] ?? "",
+        paidAt: row[45] ?? "",
       };
     }
   }
@@ -423,30 +634,258 @@ export async function getApplicantByEmail(
   }
 
   const sheets = getSheetsClient();
-
-  // Ensure sheet exists before reading
   await ensureSheetExists(sheets);
 
-  // Find the row by email
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:S`,
+    range: `${SHEET_NAME}!A:AU`,
+  });
+
+  const rows = result.data.values || [];
+
+  // row[1] = email (column B)
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row[1]?.toLowerCase() === email.toLowerCase()) {
+      return {
+        id: row[0] ?? "",
+        email: row[1] ?? "",
+        firstName: row[2] ?? "",
+        lastName: row[3] ?? "",
+        phone: row[4] ?? "",
+        dateOfBirth: row[5] ?? "",
+        ethnicity: row[6] ?? "",
+        address: row[7] ?? "",
+        postalAddress: row[8] ?? "",
+        businessName: row[9] ?? "",
+        website: row[10] ?? "",
+        qualifications: row[11] ?? "",
+        experience: row[12] ?? "",
+        furtherRequirements: row[13] ?? "",
+        coreCompetencies: row[14] ?? "",
+        referee1Name: row[15] ?? "",
+        referee1Role: row[16] ?? "",
+        referee1Email: row[17] ?? "",
+        referee1Phone: row[18] ?? "",
+        referee2Name: row[19] ?? "",
+        referee2Role: row[20] ?? "",
+        referee2Email: row[21] ?? "",
+        referee2Phone: row[22] ?? "",
+        declarationAccuracy: row[23] ?? "",
+        declarationEthics: row[24] ?? "",
+        declarationScope: row[25] ?? "",
+        declarationDoulaServices: row[26] ?? "",
+        declarationInterview: row[27] ?? "",
+        declarationProfessionalDev: row[28] ?? "",
+        declarationCriminalCheck: row[29] ?? "",
+        declarationMeetings: row[30] ?? "",
+        declarationSignedAt: row[31] ?? "",
+        resumeToken: row[32] ?? "",
+        emailHash: row[33] ?? "",
+        docTrainingCount: Number(row[34]) || 0,
+        docEthicsCount: Number(row[35]) || 0,
+        docCriminalCount: Number(row[36]) || 0,
+        docAdvanceCareCount: Number(row[37]) || 0,
+        docAssistedDyingCount: Number(row[38]) || 0,
+        docFundamentalsCount: Number(row[39]) || 0,
+        docInsuranceCount: Number(row[40]) || 0,
+        complete: row[41] ?? "FALSE",
+        stripeSession: row[42] ?? "",
+        paid: row[43] ?? "FALSE",
+        createdAt: row[44] ?? "",
+        paidAt: row[45] ?? "",
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function getUploadStatus(
+  applicantId: string
+): Promise<UploadStatus | null> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
+  if (!spreadsheetId) {
+    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
+  }
+
+  const sheets = getSheetsClient();
+
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A:AU`,
   });
 
   const rows = result.data.values || [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row[1]?.toLowerCase() === email.toLowerCase()) {
+    if (row[0] === applicantId) {
+      const docs: Partial<Record<DocType, number>> = {};
+      docs.training = Number(row[34]) || 0;
+      docs.ethics = Number(row[35]) || 0;
+      docs.criminal = Number(row[36]) || 0;
+      docs.advance_care = Number(row[37]) || 0;
+      docs.assisted_dying = Number(row[38]) || 0;
+      docs.fundamentals = Number(row[39]) || 0;
+
+      const complete = row[41] === "TRUE";
+
       return {
-        id: row[0],
-        email: row[1],
-        firstName: row[2],
-        lastName: row[3],
-        phone: row[4],
-        resumeToken: row[5],
-        createdAt: row[17],
-        paid: row[16] === "TRUE",
+        applicantId: row[0] ?? "",
+        firstName: row[2] ?? "",
+        lastName: row[3] ?? "",
+        phone: row[4] ?? "",
+        email: row[1] ?? "",
+        emailHash: row[33] ?? "",
+        docs,
+        complete,
+        stripeSessionId: row[42] || undefined,
+        paid: row[43] === "TRUE",
+        createdAt: row[44] ?? "",
+        paidAt: row[45] || undefined,
+      };
+    }
+  }
+
+  return null;
+}
+
+// Check if all required form fields are filled (not empty)
+function isFormComplete(applicant: ApplicantInfo): boolean {
+  const requiredFields = [
+    applicant.firstName,
+    applicant.lastName,
+    applicant.phone,
+    applicant.email,
+    applicant.dateOfBirth,
+    applicant.ethnicity,
+    applicant.address,
+    applicant.phone,
+    applicant.qualifications,
+    applicant.experience,
+    applicant.referee1Name,
+    applicant.referee1Role,
+    applicant.referee1Email,
+    applicant.referee1Phone,
+    applicant.referee2Name,
+    applicant.referee2Role,
+    applicant.referee2Email,
+    applicant.referee2Phone,
+  ];
+
+  for (const field of requiredFields) {
+    if (!field || field.trim() === "") return false;
+  }
+
+  // Check all 8 declarations are "TRUE"
+  const declarations = [
+    applicant.declarationAccuracy,
+    applicant.declarationEthics,
+    applicant.declarationScope,
+    applicant.declarationDoulaServices,
+    applicant.declarationInterview,
+    applicant.declarationProfessionalDev,
+    applicant.declarationCriminalCheck,
+    applicant.declarationMeetings,
+  ];
+
+  for (const decl of declarations) {
+    if (decl !== "TRUE") return false;
+  }
+
+  return true;
+}
+
+export async function validateCompletion(applicantId: string): Promise<boolean> {
+  const applicant = await getApplicantByTokenFromId(applicantId);
+  if (!applicant) return false;
+
+  // Check form fields complete
+  if (!isFormComplete(applicant)) return false;
+
+  // Check all 6 required doc types have at least 1 file
+  const requiredCounts = [
+    applicant.docTrainingCount,
+    applicant.docEthicsCount,
+    applicant.docCriminalCount,
+    applicant.docAdvanceCareCount,
+    applicant.docAssistedDyingCount,
+    applicant.docFundamentalsCount,
+  ];
+
+  for (const count of requiredCounts) {
+    if (count < 1) return false;
+  }
+
+  return true;
+}
+
+async function getApplicantByTokenFromId(applicantId: string): Promise<ApplicantInfo | null> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
+  if (!spreadsheetId) {
+    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
+  }
+
+  const sheets = getSheetsClient();
+
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A:AU`,
+  });
+
+  const rows = result.data.values || [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row[0] === applicantId) {
+      return {
+        id: row[0] ?? "",
+        email: row[1] ?? "",
+        firstName: row[2] ?? "",
+        lastName: row[3] ?? "",
+        phone: row[4] ?? "",
+        dateOfBirth: row[5] ?? "",
+        ethnicity: row[6] ?? "",
+        address: row[7] ?? "",
+        postalAddress: row[8] ?? "",
+        businessName: row[9] ?? "",
+        website: row[10] ?? "",
+        qualifications: row[11] ?? "",
+        experience: row[12] ?? "",
+        furtherRequirements: row[13] ?? "",
+        coreCompetencies: row[14] ?? "",
+        referee1Name: row[15] ?? "",
+        referee1Role: row[16] ?? "",
+        referee1Email: row[17] ?? "",
+        referee1Phone: row[18] ?? "",
+        referee2Name: row[19] ?? "",
+        referee2Role: row[20] ?? "",
+        referee2Email: row[21] ?? "",
+        referee2Phone: row[22] ?? "",
+        declarationAccuracy: row[23] ?? "",
+        declarationEthics: row[24] ?? "",
+        declarationScope: row[25] ?? "",
+        declarationDoulaServices: row[26] ?? "",
+        declarationInterview: row[27] ?? "",
+        declarationProfessionalDev: row[28] ?? "",
+        declarationCriminalCheck: row[29] ?? "",
+        declarationMeetings: row[30] ?? "",
+        declarationSignedAt: row[31] ?? "",
+        resumeToken: row[32] ?? "",
+        emailHash: row[33] ?? "",
+        docTrainingCount: Number(row[34]) || 0,
+        docEthicsCount: Number(row[35]) || 0,
+        docCriminalCount: Number(row[36]) || 0,
+        docAdvanceCareCount: Number(row[37]) || 0,
+        docAssistedDyingCount: Number(row[38]) || 0,
+        docFundamentalsCount: Number(row[39]) || 0,
+        docInsuranceCount: Number(row[40]) || 0,
+        complete: row[41] ?? "FALSE",
+        stripeSession: row[42] ?? "",
+        paid: row[43] ?? "FALSE",
+        createdAt: row[44] ?? "",
+        paidAt: row[45] ?? "",
       };
     }
   }

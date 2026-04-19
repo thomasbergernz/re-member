@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
 import crypto from "node:crypto";
 import * as Sentry from "@sentry/node";
-import { getApplicantByToken } from "../../../lib/upload-sheet";
-import { updateDocUpload, REQUIRED_DOC_TYPES, type DocType } from "../../../lib/upload-sheet";
+import { getApplicantByToken, updateDocCount, REQUIRED_DOC_TYPES, type DocType } from "../../../lib/upload-sheet";
+import { addDriveFile, getDriveFileCounts } from "../../../lib/drive-files";
 import { google } from "googleapis";
 import { logger } from "../../../lib/logger";
 import { Readable } from "node:stream";
@@ -140,7 +140,8 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "Token is required." }, { status: 400 });
   }
 
-  if (!docType || !REQUIRED_DOC_TYPES.includes(docType)) {
+  const allDocTypes = [...REQUIRED_DOC_TYPES, "insurance"] as const;
+  if (!docType || !allDocTypes.includes(docType as typeof allDocTypes[number])) {
     return Response.json({ error: "Valid document type is required." }, { status: 400 });
   }
 
@@ -236,8 +237,13 @@ export const POST: APIRoute = async ({ request }) => {
       supportsAllDrives: true,
     });
 
-    // Update sheet
-    await updateDocUpload(applicant.id, docType);
+    // Add file record to Drive Files sheet
+    await addDriveFile(applicant.id, docType, file.name, randomFilename);
+
+    // Update doc count in main sheet
+    const counts = await getDriveFileCounts(applicant.id);
+    const currentCount = counts[docType as DocType] || 1;
+    await updateDocCount(applicant.id, docType, currentCount);
 
     logger.info("document_uploaded", {
       applicantId: applicant.id,

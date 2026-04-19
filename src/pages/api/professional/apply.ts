@@ -6,11 +6,14 @@ import {
   getUploadStatus,
   getApplicantByToken,
   getApplicantByEmail,
+  updateApplicantFormData,
   REQUIRED_DOC_TYPES,
+  validateCompletion,
 } from "../../../lib/upload-sheet";
 import { sendResumeLink } from "../../../lib/email-sender";
 import { logger } from "../../../lib/logger";
 import { getSiteBaseUrl } from "../../../lib/stripe-checkout";
+import { listDriveFiles } from "../../../lib/drive-files";
 
 export const GET: APIRoute = async ({ url }) => {
   const token = url.searchParams.get("token");
@@ -26,7 +29,7 @@ export const GET: APIRoute = async ({ url }) => {
       return Response.json({ status: "new", error: "Invalid or expired link" });
     }
 
-    if (applicant.paid) {
+    if (applicant.paid === "TRUE") {
       return Response.json({
         status: "paid",
         firstName: applicant.firstName,
@@ -34,27 +37,65 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    const uploadStatus = await getUploadStatus(applicant.id);
+    // Get file list from Drive Files
+    const files = await listDriveFiles(applicant.id);
+    const docsUploaded: Record<string, { fileId: string; filename: string; uploadedAt: string }[]> = {};
 
-    if (!uploadStatus) {
-      return Response.json({ status: "error", error: "Application not found" });
+    for (const file of files) {
+      if (!docsUploaded[file.docType]) {
+        docsUploaded[file.docType] = [];
+      }
+      docsUploaded[file.docType].push({
+        fileId: file.fileId,
+        filename: file.originalFilename,
+        uploadedAt: file.uploadedAt,
+      });
     }
 
-    const docsUploaded = REQUIRED_DOC_TYPES.filter(
-      (type) => uploadStatus.docs[type]
-    );
+    // Determine completion via validateCompletion
+    const isComplete = await validateCompletion(applicant.id);
 
-    const remaining = REQUIRED_DOC_TYPES.filter(
-      (type) => !uploadStatus.docs[type]
-    );
+    const status = isComplete ? "complete" : "partial";
 
     return Response.json({
-      status: docsUploaded.length === 7 ? "complete" : "partial",
+      status,
       firstName: applicant.firstName,
       lastName: applicant.lastName,
+      email: applicant.email,
+      phone: applicant.phone,
       docsUploaded,
-      remaining,
-      complete: uploadStatus.complete,
+      // Form fields for pre-population
+      dateOfBirth: applicant.dateOfBirth,
+      ethnicity: applicant.ethnicity,
+      address: applicant.address,
+      postalAddress: applicant.postalAddress,
+      businessName: applicant.businessName,
+      website: applicant.website,
+      qualifications: applicant.qualifications,
+      experience: applicant.experience,
+      furtherRequirements: applicant.furtherRequirements,
+      coreCompetencies: applicant.coreCompetencies,
+      referee1: {
+        name: applicant.referee1Name,
+        role: applicant.referee1Role,
+        email: applicant.referee1Email,
+        phone: applicant.referee1Phone,
+      },
+      referee2: {
+        name: applicant.referee2Name,
+        role: applicant.referee2Role,
+        email: applicant.referee2Email,
+        phone: applicant.referee2Phone,
+      },
+      declarationAccuracy: applicant.declarationAccuracy,
+      declarationEthics: applicant.declarationEthics,
+      declarationScope: applicant.declarationScope,
+      declarationDoulaServices: applicant.declarationDoulaServices,
+      declarationInterview: applicant.declarationInterview,
+      declarationProfessionalDev: applicant.declarationProfessionalDev,
+      declarationCriminalCheck: applicant.declarationCriminalCheck,
+      declarationMeetings: applicant.declarationMeetings,
+      complete: isComplete,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -72,18 +113,18 @@ export const GET: APIRoute = async ({ url }) => {
 };
 
 export const POST: APIRoute = async ({ request, url }) => {
-  let payload: { firstName?: string; lastName?: string; phone?: string; email?: string };
+  let payload: Record<string, unknown>;
 
   try {
-    payload = (await request.json()) as { firstName?: string; lastName?: string; phone?: string; email?: string };
+    payload = (await request.json()) as Record<string, unknown>;
   } catch {
     return Response.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const firstName = payload.firstName?.trim();
-  const lastName = payload.lastName?.trim();
-  const phone = payload.phone?.trim();
-  const email = payload.email?.trim().toLowerCase();
+  const firstName = (payload.firstName as string)?.trim();
+  const lastName = (payload.lastName as string)?.trim();
+  const phone = (payload.phone as string)?.trim();
+  const email = (payload.email as string)?.trim().toLowerCase();
 
   if (!firstName) {
     return Response.json({ error: "First name is required." }, { status: 400 });
@@ -97,17 +138,75 @@ export const POST: APIRoute = async ({ request, url }) => {
     return Response.json({ error: "Email is required." }, { status: 400 });
   }
 
-  // Basic email validation
   if (!email.includes("@") || !email.includes(".")) {
     return Response.json({ error: "Valid email is required." }, { status: 400 });
   }
 
   const fullName = `${firstName} ${lastName}`;
 
+  // Extract all form fields
+  const dateOfBirth = (payload.dateOfBirth as string)?.trim() || "";
+  const ethnicity = (payload.ethnicity as string)?.trim() || "";
+  const address = (payload.address as string)?.trim() || "";
+  const postalAddress = (payload.postalAddress as string)?.trim() || "";
+  const businessName = (payload.businessName as string)?.trim() || "";
+  const website = (payload.website as string)?.trim() || "";
+  const qualifications = (payload.qualifications as string) || "";
+  const experience = (payload.experience as string) || "";
+  const furtherRequirements = (payload.furtherRequirements as string) || "";
+  const coreCompetencies = (payload.coreCompetencies as string) || "";
+  const referee1Name = (payload.referee1Name as string)?.trim() || "";
+  const referee1Role = (payload.referee1Role as string)?.trim() || "";
+  const referee1Email = (payload.referee1Email as string)?.trim() || "";
+  const referee1Phone = (payload.referee1Phone as string)?.trim() || "";
+  const referee2Name = (payload.referee2Name as string)?.trim() || "";
+  const referee2Role = (payload.referee2Role as string)?.trim() || "";
+  const referee2Email = (payload.referee2Email as string)?.trim() || "";
+  const referee2Phone = (payload.referee2Phone as string)?.trim() || "";
+  const declarationAccuracy = (payload.declarationAccuracy as string) || "";
+  const declarationEthics = (payload.declarationEthics as string) || "";
+  const declarationScope = (payload.declarationScope as string) || "";
+  const declarationDoulaServices = (payload.declarationDoulaServices as string) || "";
+  const declarationInterview = (payload.declarationInterview as string) || "";
+  const declarationProfessionalDev = (payload.declarationProfessionalDev as string) || "";
+  const declarationCriminalCheck = (payload.declarationCriminalCheck as string) || "";
+  const declarationMeetings = (payload.declarationMeetings as string) || "";
+  const declarationSignedAt = (payload.declarationSignedAt as string) || "";
+
   try {
-    // Check if email already exists
     const existingApplicant = await getApplicantByEmail(email);
     if (existingApplicant) {
+      // Update existing applicant with form data
+      await updateApplicantFormData(existingApplicant.id, {
+        dateOfBirth,
+        ethnicity,
+        address,
+        postalAddress,
+        businessName,
+        website,
+        qualifications,
+        experience,
+        furtherRequirements,
+        coreCompetencies,
+        referee1Name,
+        referee1Role,
+        referee1Email,
+        referee1Phone,
+        referee2Name,
+        referee2Role,
+        referee2Email,
+        referee2Phone,
+        declarationAccuracy,
+        declarationEthics,
+        declarationScope,
+        declarationDoulaServices,
+        declarationInterview,
+        declarationProfessionalDev,
+        declarationCriminalCheck,
+        declarationMeetings,
+        declarationSignedAt: declarationSignedAt || new Date().toISOString(),
+      });
+
       const siteBaseUrl = getSiteBaseUrl(url.href);
       const resumeLink = `${siteBaseUrl}/professional/apply?token=${existingApplicant.resumeToken}`;
       return Response.json({
@@ -118,23 +217,29 @@ export const POST: APIRoute = async ({ request, url }) => {
       });
     }
 
-    // Generate applicant ID and resume token
     const applicantId = crypto.randomUUID();
     const resumeToken = crypto.randomUUID();
 
-    // Create row in Google Sheet with all info
-    await createApplicantRow(applicantId, firstName, lastName, phone, email, resumeToken);
+    // Create new row with all form data
+    await createApplicantRow(
+      applicantId, firstName, lastName, phone, email, resumeToken,
+      dateOfBirth, ethnicity, address, postalAddress, businessName, website,
+      qualifications, experience, furtherRequirements, coreCompetencies,
+      referee1Name, referee1Role, referee1Email, referee1Phone,
+      referee2Name, referee2Role, referee2Email, referee2Phone,
+      declarationAccuracy, declarationEthics, declarationScope,
+      declarationDoulaServices, declarationInterview, declarationProfessionalDev,
+      declarationCriminalCheck, declarationMeetings,
+      declarationSignedAt || new Date().toISOString()
+    );
 
-    // Build resume link
     const siteBaseUrl = getSiteBaseUrl(url.href);
     const resumeLink = `${siteBaseUrl}/professional/apply?token=${resumeToken}`;
 
-    // Send email with resume link
     try {
       await sendResumeLink(email, fullName, resumeLink);
       logger.info("resume_email_sent", { applicantId, email });
     } catch (emailError) {
-      // Log but don't fail - show link on-screen instead
       logger.error("resume_email_failed", {
         applicantId,
         email,

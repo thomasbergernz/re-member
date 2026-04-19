@@ -9,6 +9,7 @@ import {
 } from "../../../lib/stripe-checkout";
 import { getApplicantByToken } from "../../../lib/upload-sheet";
 import { getUploadStatus, REQUIRED_DOC_TYPES } from "../../../lib/upload-sheet";
+import { validateCompletion } from "../../../lib/upload-sheet";
 import { logger } from "../../../lib/logger";
 
 function badRequest(message: string): Response {
@@ -41,23 +42,14 @@ export const POST: APIRoute = async ({ request, url }) => {
     return badRequest("Application already completed.");
   }
 
-  // Check upload status
-  const uploadStatus = await getUploadStatus(applicant.id);
+  // Validate completion (form fields + doc uploads)
+    const isComplete = await validateCompletion(applicant.id);
 
-  if (!uploadStatus) {
-    return badRequest("Application not found.");
-  }
-
-  // Verify all documents are uploaded
-  const missingDocs = REQUIRED_DOC_TYPES.filter(
-    (type) => !uploadStatus.docs[type]
-  );
-
-  if (missingDocs.length > 0) {
-    return badRequest(
-      `Please upload all required documents first. Missing: ${missingDocs.join(", ")}`
-    );
-  }
+    if (!isComplete) {
+      return badRequest(
+        "Please complete all form sections and upload all required documents before proceeding."
+      );
+    }
 
   // Create Stripe checkout session
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
