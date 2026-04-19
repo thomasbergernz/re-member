@@ -946,13 +946,17 @@ const token = Astro.url.searchParams.get("token");
         applicantId = data.applicantId;
         window.__applicantId__ = data.applicantId;
         window.__token__ = data.resumeLink?.split("token=")[1] || token;
-        let message = `Application started!`;
-        if (data.resumeLink) {
-          message += `<br><br><strong>Your upload link:</strong><br><a href="${data.resumeLink}" style="color: var(--accent); word-break: break-all;">${data.resumeLink}</a><br><br><em>Save this link to continue your application later.</em>`;
-        }
-        document.getElementById("register-message").innerHTML = message;
-        document.getElementById("register-message").style.display = "block";
-        btn.textContent = "Link Created";
+
+        // Populate Step 1 fields with registration data
+        document.getElementById("firstName").value = firstName;
+        document.getElementById("lastName").value = lastName;
+        document.getElementById("phone").value = phone;
+        document.getElementById("email").value = email;
+
+        // Hide registration, show wizard
+        document.getElementById("section-register").style.display = "none";
+        document.getElementById("step-indicator").style.display = "flex";
+        showStep(1);
       } else {
         document.getElementById("register-message").textContent = data.error || "Failed.";
         document.getElementById("register-message").style.display = "block";
