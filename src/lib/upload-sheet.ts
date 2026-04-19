@@ -136,7 +136,7 @@ async function ensureSheetExists(sheets: ReturnType<typeof google.sheets>): Prom
   // Add headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!A1:AU1`,
+    range: `'${SHEET_NAME}'!A1:AU1`,
     valueInputOption: "RAW",
     requestBody: {
       values: [SHEET_HEADERS],
@@ -248,12 +248,12 @@ export async function createApplicantRow(
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:AU`,
     valueInputOption: "RAW",
     requestBody: {
       values: [row],
     },
-  });
+    range: `'${SHEET_NAME}'!A:AU`,
+  },);
 }
 
 export async function updateApplicantFormData(

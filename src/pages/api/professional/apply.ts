@@ -37,23 +37,31 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    // Get file list from Drive Files
-    const files = await listDriveFiles(applicant.id);
-    const docsUploaded: Record<string, { fileId: string; filename: string; uploadedAt: string }[]> = {};
-
-    for (const file of files) {
-      if (!docsUploaded[file.docType]) {
-        docsUploaded[file.docType] = [];
+    // Get file list from Drive Files (sheet may not exist yet for new applicants)
+    let docsUploaded: Record<string, { fileId: string; filename: string; uploadedAt: string }[]> = {};
+    try {
+      const files = await listDriveFiles(applicant.id);
+      for (const file of files) {
+        if (!docsUploaded[file.docType]) {
+          docsUploaded[file.docType] = [];
+        }
+        docsUploaded[file.docType].push({
+          fileId: file.fileId,
+          filename: file.originalFilename,
+          uploadedAt: file.uploadedAt,
+        });
       }
-      docsUploaded[file.docType].push({
-        fileId: file.fileId,
-        filename: file.originalFilename,
-        uploadedAt: file.uploadedAt,
-      });
+    } catch (e) {
+      // Drive Files sheet doesn't exist yet — that's fine, no files uploaded
     }
 
     // Determine completion via validateCompletion
-    const isComplete = await validateCompletion(applicant.id);
+    let isComplete = false;
+    try {
+      isComplete = await validateCompletion(applicant.id);
+    } catch (e) {
+      // If validateCompletion fails (e.g. partial data), treat as incomplete
+    }
 
     const status = isComplete ? "complete" : "partial";
 

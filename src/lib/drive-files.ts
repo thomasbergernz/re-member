@@ -72,7 +72,7 @@ async function ensureDriveFilesSheetExists(sheets: ReturnType<typeof google.shee
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${DRIVE_FILES_SHEET}!A1:F1`,
+    range: `'${DRIVE_FILES_SHEET}'!A1:F1`,
     valueInputOption: "RAW",
     requestBody: { values: [DRIVE_FILES_HEADERS] },
   });
@@ -101,7 +101,7 @@ export async function addDriveFile(
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${DRIVE_FILES_SHEET}!A:F`,
+    range: `'${DRIVE_FILES_SHEET}'!A:F`,
     valueInputOption: "RAW",
     requestBody: {
       values: [[
@@ -123,7 +123,7 @@ export async function softDeleteDriveFile(fileId: string): Promise<void> {
 
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${DRIVE_FILES_SHEET}!A:A`,
+    range: `'${DRIVE_FILES_SHEET}'!A:A`,
   });
 
   const rows = result.data.values || [];
@@ -140,7 +140,7 @@ export async function softDeleteDriveFile(fileId: string): Promise<void> {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${DRIVE_FILES_SHEET}!F${rowIndex}`,
+    range: `'${DRIVE_FILES_SHEET}'!F${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: { values: [["TRUE"]] },
   });
@@ -165,7 +165,7 @@ export async function listDriveFiles(applicantId: string): Promise<DriveFileReco
 
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${DRIVE_FILES_SHEET}!A:F`,
+    range: `'${DRIVE_FILES_SHEET}'!A:F`,
   });
 
   const rows = result.data.values || [];
