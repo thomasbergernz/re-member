@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import crypto from "node:crypto";
+import { logger } from "./logger";
 
 export const REQUIRED_DOC_TYPES = [
   "training",
@@ -570,7 +571,16 @@ export async function getApplicantByToken(
   // Row index: AG = column index 32 (0-based), so row[32] = resumeToken
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row[32] === token) {
+    const rowToken = row[32] ?? "";
+    if (rowToken === token) {
+      const paidVal = row[43] ?? "FALSE";
+      logger.info("getApplicantByToken_match", {
+        rowIndex: i,
+        matchedToken: rowToken,
+        paidValue: paidVal,
+        applicantId: row[0],
+        tokenPrefix: token.substring(0, 8),
+      });
       return {
         id: row[0] ?? "",
         email: row[1] ?? "",
@@ -615,7 +625,7 @@ export async function getApplicantByToken(
         docInsuranceCount: Number(row[40]) || 0,
         complete: row[41] ?? "FALSE",
         stripeSession: row[42] ?? "",
-        paid: row[43] ?? "FALSE",
+        paid: row[43] === "TRUE",
         createdAt: row[44] ?? "",
         paidAt: row[45] ?? "",
       };

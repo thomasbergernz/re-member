@@ -132,6 +132,8 @@ export const POST: APIRoute = async ({ request }) => {
   let mimeType: string;
   let buffer: Buffer;
 
+  logger.info("upload_request_received", { contentType });
+
   if (contentType.includes("application/json")) {
     // JSON mode: receive base64-encoded file data
     let payload: Record<string, unknown>;
@@ -147,17 +149,15 @@ export const POST: APIRoute = async ({ request }) => {
     mimeType = (payload.mimeType as string)?.trim();
     const base64Data = payload.data as string;
 
-    if (!token) return Response.json({ error: "Token is required." }, { status: 400 });
-    if (!docType) return Response.json({ error: "Document type is required." }, { status: 400 });
-    if (!filename) return Response.json({ error: "Filename is required." }, { status: 400 });
-    if (!mimeType) return Response.json({ error: "MIME type is required." }, { status: 400 });
-    if (!base64Data) return Response.json({ error: "File data is required." }, { status: 400 });
-
+    let tmpBuffer: Buffer;
     try {
-      buffer = Buffer.from(base64Data, "base64");
+      tmpBuffer = Buffer.from(base64Data, "base64");
     } catch {
       return Response.json({ error: "Invalid base64 data." }, { status: 400 });
     }
+    buffer = tmpBuffer;
+
+    logger.info("upload_payload_parsed", { token: token?.substring(0, 8), docType, filename, mimeType, bufferLen: buffer.length });
   } else if (contentType.includes("multipart/form-data")) {
     // Multipart mode: receive file directly (fallback for compatibility)
     const formData = await request.formData();
@@ -173,6 +173,7 @@ export const POST: APIRoute = async ({ request }) => {
     mimeType = file.type;
     const arrayBuffer = await file.arrayBuffer();
     buffer = Buffer.from(arrayBuffer);
+    logger.info("upload_payload_parsed_multipart", { token: token?.substring(0, 8), docType, filename, mimeType, bufferLen: buffer.length });
   } else {
     return Response.json(
       { error: "Content-Type must be application/json or multipart/form-data." },
@@ -182,10 +183,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const allDocTypes = [...REQUIRED_DOC_TYPES, "insurance"] as const;
   if (!allDocTypes.includes(docType as typeof allDocTypes[number])) {
+    logger.warn("upload_bad_doctype", { docType });
     return Response.json({ error: "Valid document type is required." }, { status: 400 });
   }
 
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+    logger.warn("upload_bad_mimetype", { mimeType });
     return Response.json(
       { error: "File type not allowed. Use PDF, JPEG, PNG, GIF, or Word documents." },
       { status: 400 }
@@ -193,6 +196,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   if (buffer.length > MAX_FILE_SIZE) {
+    logger.warn("upload_file_too_large", { bufferLen: buffer.length });
     return Response.json(
       { error: "File size exceeds 10MB limit." },
       { status: 400 }
@@ -201,11 +205,19 @@ export const POST: APIRoute = async ({ request }) => {
 
   const applicant = await getApplicantByToken(token);
   if (!applicant) {
+    logger.warn("upload_token_not_found", { token: token?.substring(0, 8) });
     return Response.json({ error: "Invalid or expired session." }, { status: 400 });
   }
   if (applicant.paid) {
+    logger.warn("upload_paid_applicant", { token: token?.substring(0, 8), applicantId: applicant.id });
     return Response.json({ error: "Application already completed." }, { status: 400 });
   }
+
+  logger.info("upload_proceeding", {
+    applicantId: applicant.id,
+    docType,
+    token: token?.substring(0, 8),
+  });
 
   try {
     const drive = getDriveClient();
@@ -218,6 +230,17 @@ export const POST: APIRoute = async ({ request }) => {
 
     const ext = filename.split(".").pop() || "pdf";
     const randomFilename = `${crypto.randomUUID()}.${ext}`;
+
+    logger.info("upload_attempt", {
+      applicantId: applicant.id,
+      docType,
+      folderName,
+      applicantFolderId,
+      docFolderId,
+      randomFilename,
+      mimeType,
+      bufferSize: buffer.length,
+    });
 
     if (!verifyMagicBytes(buffer, mimeType)) {
       const detectedType = detectMimeTypeFromBytes(buffer);
@@ -235,11 +258,25 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    await drive.files.create({
-      requestBody: { name: randomFilename, parents: [docFolderId] },
-      media: { mimeType, body: Readable.from(buffer) },
-      supportsAllDrives: true,
-    });
+    let driveFileId: string;
+    try {
+      const created = await drive.files.create({
+        requestBody: { name: randomFilename, parents: [docFolderId] },
+        media: { mimeType, body: Readable.from(buffer) },
+        supportsAllDrives: true,
+        fields: "id",
+      });
+      driveFileId = created.data.id;
+      if (!driveFileId) throw new Error("Drive API returned no file ID");
+      logger.info("drive_file_created", { applicantId: applicant.id, docType, driveFileId, randomFilename });
+    } catch (driveError) {
+      logger.error("drive_upload_failed", {
+        applicantId: applicant.id,
+        docType,
+        error: driveError instanceof Error ? driveError.message : String(driveError),
+      });
+      throw driveError;
+    }
 
     await addDriveFile(applicant.id, docType, filename, randomFilename);
 
