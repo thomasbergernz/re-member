@@ -2,10 +2,10 @@ import type { APIRoute } from "astro";
 import Stripe from "stripe";
 import * as Sentry from "@sentry/node";
 import {
+  calcFirstTermAmount,
   formatAmountNzd,
   getNextJulyAnchorEpoch,
   getSiteBaseUrl,
-  isPromoWindowNz,
 } from "../../../lib/stripe-checkout";
 import { getApplicantByToken } from "../../../lib/upload-sheet";
 import { getUploadStatus, REQUIRED_DOC_TYPES } from "../../../lib/upload-sheet";
@@ -82,12 +82,10 @@ export const POST: APIRoute = async ({ request, url }) => {
     }
 
     const annualAmount = recurringPrice.unit_amount;
-    const inPromoWindow = isPromoWindowNz();
 
-    // Upload applicants are always first-time — apply 50% discount during promo window
-    const firstTermAmount = inPromoWindow
-      ? Math.round(annualAmount * 0.5)
-      : annualAmount;
+    // First-term amount: prorated based on weeks remaining until next July 1.
+    // Upload applicants are always first-time, so they get the prorated amount.
+    const firstTermAmount = calcFirstTermAmount(annualAmount);
 
     const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
 
@@ -135,13 +133,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 
     const session = await stripe.checkout.sessions.create(params);
 
+    const proratedFirstTerm = firstTermAmount !== annualAmount;
+
     logger.info("checkout_session.created_from_upload", {
       plan: "professional",
       applicantId: applicant.id,
       sessionId: session.id,
       firstTermAmount,
       annualAmount,
-      eligibleForPromo: inPromoWindow,
+      proratedFirstTerm,
     });
 
     return Response.json({
@@ -150,7 +150,7 @@ export const POST: APIRoute = async ({ request, url }) => {
       plan: "professional",
       firstTermAmount,
       annualAmount,
-      eligibleForPromo: inPromoWindow,
+      proratedFirstTerm,
     });
   } catch (error) {
     Sentry.captureException(error, { extra: { applicantId: applicant.id } });
