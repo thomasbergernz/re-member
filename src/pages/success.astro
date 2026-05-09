@@ -19,11 +19,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 <script>
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get("session_id");
-  const messageEl = document.querySelector("#message");
-  const nextStepsEl = document.querySelector("#next-steps");
-  const formLinkText = document.querySelector("#form-link-text");
-  const formLinkEl = document.querySelector("#form-link");
-  const countdownEl = document.querySelector("#countdown");
+  const messageEl = document.querySelector<HTMLParagraphElement>("#message");
+  const nextStepsEl = document.querySelector<HTMLDivElement>("#next-steps");
+  const formLinkText = document.querySelector<HTMLParagraphElement>("#form-link-text");
+  const formLinkEl = document.querySelector<HTMLAnchorElement>("#form-link");
+  const countdownEl = document.querySelector<HTMLDivElement>("#countdown");
 
   if (!sessionId) {
     messageEl!.textContent = "No session found. If you completed checkout, please contact us.";

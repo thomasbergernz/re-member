@@ -5,7 +5,6 @@ interface ImportMetaEnv {
   readonly STRIPE_WEBHOOK_SECRET?: string;
   readonly STRIPE_PRICE_ASSOCIATE: string;
   readonly STRIPE_PRICE_PROFESSIONAL: string;
-  readonly STRIPE_COUPON_HALF: string;
   readonly PUBLIC_SITE_URL?: string;
 }
 
