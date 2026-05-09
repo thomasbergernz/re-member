@@ -79,3 +79,8 @@ export function getPlanDisplayName(plan: MembershipPlan): string {
 export function formatAmountNzd(amountInCents: number): string {
   return `NZ$${(amountInCents / 100).toFixed(2)}`;
 }
+
+export function isCheckoutDryRunEnabled(): boolean {
+  const value = process.env.CHECKOUT_DRY_RUN?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}

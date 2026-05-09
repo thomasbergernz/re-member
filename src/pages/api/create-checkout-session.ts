@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/node";
 import {
   calcFirstTermAmount,
   formatAmountNzd,
+  isCheckoutDryRunEnabled,
   getNextJulyAnchorEpoch,
   getPriceForPlan,
   getSiteBaseUrl,
@@ -91,9 +92,24 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const stripe = new Stripe(secretKey);
+  const dryRun = isCheckoutDryRunEnabled();
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   const recurringPriceId = getPriceForPlan(plan);
   const billingCycleAnchor = getNextJulyAnchorEpoch();
   const siteBaseUrl = getSiteBaseUrl(request.url);
+  if (!recurringPriceId) {
+    return Response.json(
+      { error: `Server is missing recurring price ID for plan '${plan}'.` },
+      { status: 500 },
+    );
+  }
+
+  if (dryRun && !webhookSecret) {
+    return Response.json(
+      { error: "Server is missing STRIPE_WEBHOOK_SECRET required for dry-run validation." },
+      { status: 500 },
+    );
+  }
 
   const recurringPrice = await stripe.prices.retrieve(recurringPriceId);
   if (recurringPrice.currency !== "nzd" || !recurringPrice.unit_amount) {
@@ -111,8 +127,34 @@ export const POST: APIRoute = async ({ request }) => {
   const firstTermAmount = customerInfo.hasPriorSubscriptions
     ? annualAmount
     : calcFirstTermAmount(annualAmount);
+  const proratedFirstTerm = firstTermAmount !== annualAmount;
 
   const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
+
+  if (dryRun) {
+    logger.info("checkout_session.dry_run_validated", {
+      plan,
+      email,
+      customerId: customerInfo.id,
+      recurringPriceId,
+      firstTermAmount,
+      annualAmount,
+      proratedFirstTerm,
+      billingCycleAnchor,
+    });
+
+    return Response.json({
+      dryRun: true,
+      message:
+        "CHECKOUT_DRY_RUN is enabled. Stripe keys and price configuration validated; no Checkout Session was created.",
+      plan,
+      firstTermAmount,
+      annualAmount,
+      billingCycleAnchor,
+      proratedFirstTerm,
+      renewalMessage,
+    });
+  }
 
   // mode=payment for Option C: one-time charge, subscription created in webhook
   const params: Stripe.Checkout.SessionCreateParams = {
@@ -167,8 +209,6 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const session = await stripe.checkout.sessions.create(params);
-
-    const proratedFirstTerm = firstTermAmount !== annualAmount;
 
     logger.info("checkout_session.created", {
       plan,

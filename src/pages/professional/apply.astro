@@ -937,6 +937,12 @@ const token = Astro.url.searchParams.get("token");
       });
 
       const data = await res.json();
+      if (data.dryRun) {
+        btn.disabled = false;
+        btn.textContent = "Proceed to Payment";
+        alert(data.message || "Dry run passed. Stripe configuration validated.");
+        return;
+      }
       if (data.url) {
         window.location.href = data.url;
       } else {

@@ -4,11 +4,11 @@ import * as Sentry from "@sentry/node";
 import {
   calcFirstTermAmount,
   formatAmountNzd,
+  isCheckoutDryRunEnabled,
   getNextJulyAnchorEpoch,
   getSiteBaseUrl,
 } from "../../../lib/stripe-checkout";
 import { getApplicantByToken } from "../../../lib/upload-sheet";
-import { getUploadStatus, REQUIRED_DOC_TYPES } from "../../../lib/upload-sheet";
 import { validateCompletion } from "../../../lib/upload-sheet";
 import { logger } from "../../../lib/logger";
 
@@ -43,13 +43,13 @@ export const POST: APIRoute = async ({ request, url }) => {
   }
 
   // Validate completion (form fields + doc uploads)
-    const isComplete = await validateCompletion(applicant.id);
+  const isComplete = await validateCompletion(applicant.id);
 
-    if (!isComplete) {
-      return badRequest(
-        "Please complete all form sections and upload all required documents before proceeding."
-      );
-    }
+  if (!isComplete) {
+    return badRequest(
+      "Please complete all form sections and upload all required documents before proceeding."
+    );
+  }
 
   // Create Stripe checkout session
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -61,6 +61,8 @@ export const POST: APIRoute = async ({ request, url }) => {
   }
 
   const stripe = new Stripe(secretKey);
+  const dryRun = isCheckoutDryRunEnabled();
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   const recurringPriceId = process.env.STRIPE_PRICE_PROFESSIONAL?.trim();
   const billingCycleAnchor = getNextJulyAnchorEpoch();
   const siteBaseUrl = getSiteBaseUrl(url.href);
@@ -68,6 +70,13 @@ export const POST: APIRoute = async ({ request, url }) => {
   if (!recurringPriceId) {
     return Response.json(
       { error: "Server is missing STRIPE_PRICE_PROFESSIONAL." },
+      { status: 500 }
+    );
+  }
+
+  if (dryRun && !webhookSecret) {
+    return Response.json(
+      { error: "Server is missing STRIPE_WEBHOOK_SECRET required for dry-run validation." },
       { status: 500 }
     );
   }
@@ -86,8 +95,31 @@ export const POST: APIRoute = async ({ request, url }) => {
     // First-term amount: prorated based on weeks remaining until next July 1.
     // Upload applicants are always first-time, so they get the prorated amount.
     const firstTermAmount = calcFirstTermAmount(annualAmount);
+    const proratedFirstTerm = firstTermAmount !== annualAmount;
 
     const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
+
+    if (dryRun) {
+      logger.info("checkout_session.dry_run_validated_from_upload", {
+        plan: "professional",
+        applicantId: applicant.id,
+        recurringPriceId,
+        firstTermAmount,
+        annualAmount,
+        proratedFirstTerm,
+        billingCycleAnchor,
+      });
+
+      return Response.json({
+        dryRun: true,
+        message:
+          "CHECKOUT_DRY_RUN is enabled. Stripe keys and price configuration validated; no Checkout Session was created.",
+        plan: "professional",
+        firstTermAmount,
+        annualAmount,
+        proratedFirstTerm,
+      });
+    }
 
     const params: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
@@ -132,8 +164,6 @@ export const POST: APIRoute = async ({ request, url }) => {
     params.customer_email = applicant.email;
 
     const session = await stripe.checkout.sessions.create(params);
-
-    const proratedFirstTerm = firstTermAmount !== annualAmount;
 
     logger.info("checkout_session.created_from_upload", {
       plan: "professional",

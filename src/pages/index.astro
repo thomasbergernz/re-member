@@ -142,6 +142,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         });
 
         const data = await response.json();
+        if (data.dryRun) {
+          setLoading(false);
+          setStatus(data.message || "Dry run passed. Stripe configuration validated.", "ok");
+          return;
+        }
 
         if (!response.ok || !data.url) {
           throw new Error(data.error || "Checkout session creation failed.");
