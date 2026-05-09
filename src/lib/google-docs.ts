@@ -10,6 +10,14 @@ function getDocsClient() {
   const auth = new google.auth.JWT({ email, key, scopes: ["https://www.googleapis.com/auth/documents"] });
   return google.docs({ version: "v1", auth });
 }
+function getDriveClient() {
+  const email = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL?.trim();
+  const keyRaw = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY?.trim();
+  if (!email || !keyRaw) throw new Error("Missing GOOGLE_SHEETS service account config.");
+  const key = keyRaw.replace(/\\n/g, "\n");
+  const auth = new google.auth.JWT({ email, key, scopes: ["https://www.googleapis.com/auth/drive"] });
+  return google.drive({ version: "v3", auth });
+}
 
 function buildContent(applicant: ApplicantInfo) {
   const requests: object[] = [];
@@ -217,8 +225,7 @@ function buildContent(applicant: ApplicantInfo) {
 }
 
 export async function createApplicationReviewDoc(
-  applicant: ApplicantInfo,
-  docCounts: Record<string, number>
+  applicant: ApplicantInfo
 ): Promise<string> {
   const docs = getDocsClient();
   const folderId = process.env.GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID?.trim();
@@ -245,7 +252,7 @@ export async function createApplicationReviewDoc(
   // Move to folder if folderId provided
   if (folderId) {
     try {
-      const drive = google.drive({ version: "v3", auth: docs.auth as never });
+      const drive = getDriveClient();
       await drive.files.update({
         fileId: docId,
         addParents: [folderId],

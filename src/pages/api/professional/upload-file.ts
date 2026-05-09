@@ -266,8 +266,9 @@ export const POST: APIRoute = async ({ request }) => {
         supportsAllDrives: true,
         fields: "id",
       });
-      driveFileId = created.data.id;
-      if (!driveFileId) throw new Error("Drive API returned no file ID");
+      const createdFileId = created.data.id;
+      if (!createdFileId) throw new Error("Drive API returned no file ID");
+      driveFileId = createdFileId;
       logger.info("drive_file_created", { applicantId: applicant.id, docType, driveFileId, randomFilename });
     } catch (driveError) {
       logger.error("drive_upload_failed", {
