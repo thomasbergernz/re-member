@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import Stripe from "stripe";
 import * as Sentry from "@sentry/node";
+import crypto from "node:crypto";
 import {
   calcFirstTermAmount,
   formatAmountNzd,
@@ -10,6 +11,7 @@ import {
   getSiteBaseUrl,
   type MembershipPlan,
 } from "../../lib/stripe-checkout";
+import { appendAssociateApplication } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 
 type CreateSessionPayload = {
@@ -18,6 +20,16 @@ type CreateSessionPayload = {
   lastName?: string;
   phone?: string;
   email?: string;
+  applicationSource?: "apply";
+  fullAddress?: string;
+  postalAddress?: string;
+  businessName?: string;
+  interestJoining?: string;
+  trainingDetails?: string;
+  listOnPage?: "yes" | "no";
+  listingDetails?: string;
+  signature?: string;
+  applicationDate?: string;
 };
 
 type ExistingCustomerInfo = {
@@ -78,10 +90,36 @@ export const POST: APIRoute = async ({ request }) => {
   const lastName = payload.lastName?.trim();
   const phone = payload.phone?.trim();
   const email = payload.email?.trim().toLowerCase();
+  const applicationSource = payload.applicationSource;
+  const isAssociateApply = plan === "associate" && applicationSource === "apply";
+  const fullAddress = payload.fullAddress?.trim() ?? "";
+  const postalAddress = payload.postalAddress?.trim() ?? "";
+  const businessName = payload.businessName?.trim() ?? "";
+  const interestJoining = payload.interestJoining?.trim() ?? "";
+  const trainingDetails = payload.trainingDetails?.trim() ?? "";
+  const listOnPage = payload.listOnPage;
+  const listingDetails = payload.listingDetails?.trim() ?? "";
+  const signature = payload.signature?.trim() ?? "";
+  const applicationDate = payload.applicationDate?.trim() ?? "";
 
   if (!firstName) return badRequest("Provide a first name.");
   if (!lastName) return badRequest("Provide a last name.");
   if (!email) return badRequest("Provide an email.");
+
+  if (isAssociateApply) {
+    if (!phone) return badRequest("Provide a phone number.");
+    if (!fullAddress) return badRequest("Provide a full address.");
+    if (!interestJoining) return badRequest("Provide your interest in joining ELDAA.");
+    if (!trainingDetails) return badRequest("Provide your End of Life Doula training details.");
+    if (!listOnPage || (listOnPage !== "yes" && listOnPage !== "no")) {
+      return badRequest("Select whether you want to be listed on the Associate Members page.");
+    }
+    if (listOnPage === "yes" && !listingDetails) {
+      return badRequest("Provide listing details for publication.");
+    }
+    if (!signature) return badRequest("Provide your signature.");
+    if (!applicationDate) return badRequest("Provide your application date.");
+  }
 
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
@@ -130,6 +168,7 @@ export const POST: APIRoute = async ({ request }) => {
   const proratedFirstTerm = firstTermAmount !== annualAmount;
 
   const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
+  const associateApplicationId = isAssociateApply ? crypto.randomUUID() : "";
 
   if (dryRun) {
     logger.info("checkout_session.dry_run_validated", {
@@ -194,6 +233,13 @@ export const POST: APIRoute = async ({ request }) => {
       },
     },
   };
+  if (associateApplicationId) {
+    params.metadata = {
+      ...params.metadata,
+      application_source: "apply",
+      associate_application_id: associateApplicationId,
+    };
+  }
 
   // Save payment method for future off-session charges (renewal billing)
   params.payment_intent_data = {
@@ -208,6 +254,26 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
+    if (isAssociateApply && associateApplicationId) {
+      await appendAssociateApplication({
+        submittedAt: new Date().toISOString(),
+        applicationId: associateApplicationId,
+        firstName,
+        lastName,
+        email,
+        phone: phone ?? "",
+        fullAddress,
+        postalAddress,
+        businessName,
+        interestJoining,
+        trainingDetails,
+        listOnPage: listOnPage ?? "",
+        listingDetails,
+        signature,
+        applicationDate,
+        checkoutStatus: "checkout_requested",
+      });
+    }
     const session = await stripe.checkout.sessions.create(params);
 
     logger.info("checkout_session.created", {
@@ -218,6 +284,7 @@ export const POST: APIRoute = async ({ request }) => {
       annualAmount,
       proratedFirstTerm,
       billingCycleAnchor,
+      associateApplicationId: associateApplicationId || undefined,
     });
 
     return Response.json({

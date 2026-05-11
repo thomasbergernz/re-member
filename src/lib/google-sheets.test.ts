@@ -2,11 +2,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock googleapis before importing the module under test
 const mockAppend = vi.fn().mockResolvedValue({});
+const mockUpdate = vi.fn().mockResolvedValue({});
+const mockSpreadsheetGet = vi.fn().mockResolvedValue({
+  data: {
+    sheets: [{ properties: { title: "Associate Applications" } }],
+  },
+});
+const mockBatchUpdate = vi.fn().mockResolvedValue({});
 const jwtMock = vi.fn();
 const mockSheets = vi.fn().mockReturnValue({
   spreadsheets: {
+    get: mockSpreadsheetGet,
+    batchUpdate: mockBatchUpdate,
     values: {
       append: mockAppend,
+      update: mockUpdate,
     },
   },
 });
@@ -38,6 +48,10 @@ describe("google-sheets", () => {
   async function getAppendCheckoutLog() {
     const mod = await import("./google-sheets");
     return mod.appendCheckoutLog;
+  }
+  async function getAppendAssociateApplication() {
+    const mod = await import("./google-sheets");
+    return mod.appendAssociateApplication;
   }
 
   describe("appendCheckoutLog", () => {
@@ -182,6 +196,83 @@ describe("google-sheets", () => {
       });
 
       expect(mockAppend).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("appendAssociateApplication", () => {
+    it("writes Associate application data to the Associate Applications sheet", async () => {
+      const appendAssociateApplication = await getAppendAssociateApplication();
+
+      await appendAssociateApplication({
+        submittedAt: "2026-05-11T06:30:00.000Z",
+        applicationId: "app_123",
+        firstName: "Alex",
+        lastName: "Taylor",
+        email: "alex@example.com",
+        phone: "+64 21 000 0000",
+        fullAddress: "1 Main St, Auckland",
+        postalAddress: "PO Box 123",
+        businessName: "Alex Care",
+        interestJoining: "Community support",
+        trainingDetails: "In training with provider X, expected 2026-11",
+        listOnPage: "yes",
+        listingDetails: "Alex Taylor, Alex Care, Auckland",
+        signature: "Alex Taylor",
+        applicationDate: "2026-05-11",
+        checkoutStatus: "checkout_requested",
+      });
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        spreadsheetId: "1Zbqn6BSExD5V9cPmA2rCJ2rN5f7gnP9fHjP0s5oq_I8",
+        range: "'Associate Applications'!A1:P1",
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [[
+            "submitted_at",
+            "application_id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "full_address",
+            "postal_address",
+            "business_name",
+            "interest_joining",
+            "training_details",
+            "list_on_page",
+            "listing_details",
+            "signature",
+            "application_date",
+            "checkout_status",
+          ]],
+        },
+      });
+
+      expect(mockAppend).toHaveBeenCalledWith({
+        spreadsheetId: "1Zbqn6BSExD5V9cPmA2rCJ2rN5f7gnP9fHjP0s5oq_I8",
+        range: "'Associate Applications'!A1:P1",
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [[
+            "2026-05-11T06:30:00.000Z",
+            "app_123",
+            "Alex",
+            "Taylor",
+            "alex@example.com",
+            "+64 21 000 0000",
+            "1 Main St, Auckland",
+            "PO Box 123",
+            "Alex Care",
+            "Community support",
+            "In training with provider X, expected 2026-11",
+            "yes",
+            "Alex Taylor, Alex Care, Auckland",
+            "Alex Taylor",
+            "2026-05-11",
+            "checkout_requested",
+          ]],
+        },
+      });
     });
   });
 });
