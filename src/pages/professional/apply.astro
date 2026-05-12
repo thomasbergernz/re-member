@@ -476,27 +476,27 @@ const token = Astro.url.searchParams.get("token");
   ];
 
   const COMPETENCIES = [
-    "Effective Communication Skills — deep listening, open-ended questioning, holding space",
-    "Advocacy & Empowerment — navigating medical/healthcare systems",
-    "Understanding of Cultural & Spiritual Diversity",
-    "Shows initiative — anticipate needs, seek information",
-    "Compassionate Presence — quiet, calm presence, follow the lead",
-    "Ongoing Education & Development",
-    "Self-Care & Professional Boundaries",
-    "Knowledge of End-of-Life Options — palliative care, hospice, VAD, home death",
-    "Business acumen — contractual agreement, sliding scale, timely invoices",
-    "Networking & Referrals",
-    "Holistic support — emotional, spiritual, cultural, practical, social",
-    "Illness journey advocacy and empowerment",
-    "Legacy & Life Review",
-    "Holistic Advance Care Planning",
-    "Vigil Planning & Support",
-    "Practical Assistance during illness",
-    "Funeral & Memorial Planning",
-    "Body care and After Death care",
-    "Grief & Bereavement Awareness",
-    "Interdisciplinary Collaboration",
-    "Mentorship — willing to mentor other ELDAA members",
+    { label: "Effective Communication Skills", description: "Practice deep listening, open-ended questioning, and holding space for emotions without judgment." },
+    { label: "Advocacy & Empowerment", description: "Support clients in navigating medical and healthcare systems, ensuring their voices are heard." },
+    { label: "Understanding of Cultural & Spiritual Diversity", description: "Respect and support diverse traditions, religious beliefs, and cultural practices around death and dying." },
+    { label: "Shows initiative", description: "The ability to anticipate what a person's needs might be and prepare accordingly. Know how to seek information for what you do not know." },
+    { label: "Compassionate Presence", description: "Leave your problems/issues/thoughts/beliefs at the door. Bring a quiet, calm presence always. Follow the lead of the person and their whānau." },
+    { label: "Ongoing Education & Development", description: "Commit to continuous learning in end-of-life care, including staying informed about legal and ethical considerations." },
+    { label: "Self-Care & Professional Boundaries", description: "Maintain personal well-being and set healthy emotional boundaries to sustain this work long-term. Know when to step back if your own issues will affect your mahi." },
+    { label: "Knowledge of End-of-Life Options", description: "Be well-versed in palliative care, hospice, voluntary assisted dying, and home death options." },
+    { label: "Business acumen", description: "Provide a contractual agreement for services up front with clients, be willing to offer a sliding scale of fees, and invoice in a timely manner." },
+    { label: "Networking & Referrals", description: "Connect families with additional support, such as grief counselors, deathcare professionals, or community resources." },
+    { label: "Holistic support", description: "Provide emotional, spiritual, cultural, practical, and social support during an illness journey towards recovery or death, while helping the person live their best life." },
+    { label: "Illness journey advocacy and empowerment", description: "Coach and support clients to navigate medical and healthcare systems, physically attending specialist visits where helpful." },
+    { label: "Legacy & Life Review", description: "Facilitate storytelling, memory-sharing, letter-writing, or other legacy projects to honour the dying person's life." },
+    { label: "Holistic Advance Care Planning", description: "Work with families to create a care plan that aligns with the dying person's values, beliefs, and preferences. Assist clients in discussing and documenting their wishes, including advance directives." },
+    { label: "Vigil Planning & Support", description: "Help plan the atmosphere, rituals, and presence for the final days and hours, ensuring a peaceful environment." },
+    { label: "Practical Assistance during illness", description: "Be willing to assist with personal cares, and practical tasks if required." },
+    { label: "Funeral & Memorial Planning", description: "Help families explore meaningful ways to honour their loved one, including alternative and eco-friendly funeral options." },
+    { label: "Body care and After Death care", description: "Be knowledgeable and comfortable assisting families with after-death care, including washing, dressing, and cooling the body." },
+    { label: "Grief & Bereavement Awareness", description: "Offer compassionate support and connect to resources for grief, understanding different ways people process loss." },
+    { label: "Interdisciplinary Collaboration", description: "Work alongside medical, hospice, iwi/hapū, and community professionals." },
+    { label: "Mentorship", description: "Be willing to mentor other ELDAA members from time to time where appropriate." },
   ];
 
   let currentStep = 0;
@@ -603,7 +603,10 @@ const token = Astro.url.searchParams.get("token");
       item.className = "px-3 py-2 border rounded-md text-sm " + (checked ? "border-emerald-700 bg-emerald-50" : "border-gray-200");
       item.innerHTML = `<label class="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" data-comp="${i}" ${checked ? "checked" : ""} />
-        <span>${comp}</span>
+        <span class="leading-snug">
+          <span class="font-semibold">${comp.label}</span>
+          <span class="text-gray-600"> — ${comp.description}</span>
+        </span>
       </label>`;
       item.querySelector("input").addEventListener("change", (e) => {
         competencyStates[i] = e.target.checked;
