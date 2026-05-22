@@ -50,13 +50,11 @@ The following notifications are described in the UI but **not yet implemented**:
 | Subscription renewal reminder | — | — | Not implemented |
 | Application review completion | — | — | Not implemented |
 
-### 2. Payment Confirmation (Professional Membership)
+### 2. Payment Confirmation (Applicant Email)
 
 **Trigger:** `checkout.session.completed` webhook event for professional membership
 
-**Conditions:**
-- `plan === "professional"` and `applicant_id` present in session metadata
-- Applicant has an email address in the sheet
+**To:** Applicant's email address (from sheet)
 
 **Template:** `sendProfessionalConfirmation(toEmail, fullName)` in `src/lib/email-sender.ts`
 
@@ -77,7 +75,32 @@ ELDAA Committee
 
 ---
 
-### 3. Payment Receipt
+### 3. Internal Application Notification (ELDAA Membership Team)
+
+**Trigger:** After `createApplicationReviewDoc()` completes successfully for professional membership
+
+**To:** `membership@eldaa.org.nz` (hardcoded)
+
+**Template:** `sendProfessionalApplicationNotification(toEmail, applicantName, docUrl)` in `src/lib/email-sender.ts`
+
+```
+Subject: New Professional Membership Application — {applicantName}
+
+A new professional membership application has been received and the review document is ready.
+
+Applicant: {applicantName}
+Review document: {docUrl}
+
+Please log in to review the application and continue the membership process.
+
+ELDAA
+```
+
+**Delivery:** Non-blocking — failures are logged but do not fail webhook processing.
+
+---
+
+### 4. Stripe Payment Receipt
 
 **Trigger:** Stripe Checkout — ELDAA passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to the applicant.
 

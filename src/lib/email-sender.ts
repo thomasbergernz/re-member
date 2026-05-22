@@ -110,6 +110,29 @@ ELDAA Committee`;
   });
 }
 
+export async function sendProfessionalApplicationNotification(
+  toEmail: string,
+  applicantName: string,
+  docUrl: string
+): Promise<void> {
+  const subject = `New Professional Membership Application — ${applicantName}`;
+
+  const body = `A new professional membership application has been received and the review document is ready.
+
+Applicant: ${applicantName}
+Review document: ${docUrl}
+
+Please log in to review the application and continue the membership process.
+
+ELDAA`;
+
+  await sendEmail({
+    to: toEmail,
+    subject,
+    body,
+  });
+}
+
 export async function sendResumeLink(
   toEmail: string,
   fullName: string,

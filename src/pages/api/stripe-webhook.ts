@@ -13,7 +13,7 @@ import { appendCheckoutLog } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 import { getApplicantById, markApplicantPaid } from "../../lib/upload-sheet";
 import { createApplicationReviewDoc, createAssociateApplicationReviewDoc } from "../../lib/google-docs";
-import { sendProfessionalConfirmation } from "../../lib/email-sender";
+import { sendProfessionalConfirmation, sendProfessionalApplicationNotification } from "../../lib/email-sender";
 
 // Initialize Sentry lazily — only when DSN is present
 function getSentry() {
@@ -223,7 +223,18 @@ async function handleCheckoutCompleted(
 
   // Create a Google Doc review document for professional applications
   if (plan === "professional" && applicantId && professionalApplicant) {
-    createApplicationReviewDoc(professionalApplicant).catch((err) => {
+    createApplicationReviewDoc(professionalApplicant).then((docUrl) => {
+      const membershipEmail = "membership@eldaa.org.nz";
+      const applicantFullName = `${professionalApplicant.firstName} ${professionalApplicant.lastName}`;
+      sendProfessionalApplicationNotification(membershipEmail, applicantFullName, docUrl).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("checkout_completed.internal_notification_failed", {
+          applicantId,
+          sessionId: session.id,
+          error: msg,
+        });
+      });
+    }).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("checkout_completed.review_doc_failed", {
         applicantId,
