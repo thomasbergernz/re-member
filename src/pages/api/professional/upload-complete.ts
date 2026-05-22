@@ -169,6 +169,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 
     params.payment_intent_data = {
       setup_future_usage: "off_session",
+      receipt_email: applicant.email,
     };
 
     params.customer_creation = "always";

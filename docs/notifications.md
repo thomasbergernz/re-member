@@ -1,0 +1,138 @@
+# ELDAA Notifications
+
+> When and how ELDAA sends notifications to applicants and members.
+
+---
+
+## Currently Implemented
+
+### 1. Resume Link Email
+
+**Trigger:** New Professional Membership application started (`POST /api/professional/apply`)
+
+**Conditions:**
+- Only on **new** applicant creation (not on subsequent form updates/resumes)
+- Applicant must have provided an email address
+
+**Template:** `sendResumeLink(toEmail, fullName, resumeLink)` in `src/lib/email-sender.ts`
+
+```
+Subject: Your ELDAA Professional Membership Application
+
+Dear {fullName},
+
+Thank you for starting your Professional Membership application with ELDAA.
+
+To continue your application, please click the link below:
+{resumeLink}
+
+This link will allow you to upload your required documents and complete your application.
+
+If you did not start this application, please ignore this email.
+
+Best regards,
+ELDAA
+```
+
+**Delivery:** Non-blocking — failures are logged but do not fail the application submission.
+
+---
+
+## Planned / Not Yet Implemented
+
+The following notifications are described in the UI but **not yet implemented**:
+
+| Notification | UI Copy | Trigger Location | Status |
+|---|---|---|---|
+| Document verification confirmation | "You will receive confirmation once your documents have been verified" | `success-upload.astro` | Not implemented |
+| Membership activation confirmation | "You will receive confirmation once your membership has been activated" | `associate-membership.astro` | Not implemented |
+| Payment receipt | — | — | **Stripe handles it** — ELDAA passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to that address. |
+| Subscription renewal reminder | — | — | Not implemented |
+| Application review completion | — | — | Not implemented |
+
+### Stripe Receipt Emails
+
+When a Checkout Session is created, ELDAA passes `receipt_email` (the applicant's email) in the API call. This **overrides** the Dashboard automatic receipt settings:
+
+- **With `receipt_email` in the API call:** Stripe sends a receipt to that specific address regardless of Dashboard settings
+- **Without `receipt_email`:** Stripe uses the Dashboard setting (automatic receipts on/off)
+
+Stripe's own branded receipt is sent directly to the applicant — no ELDAA-branded receipt is needed.
+
+---
+
+## Email Infrastructure
+
+**Module:** `src/lib/email-sender.ts`
+
+### Authentication (in order of preference)
+
+1. **Gmail OAuth2** (primary)
+   - `GMAIL_OAUTH_CLIENT_ID`
+   - `GMAIL_OAUTH_CLIENT_SECRET`
+   - `GMAIL_OAUTH_REFRESH_TOKEN`
+
+2. **Service Account** (fallback)
+   - Uses `GOOGLE_APPLICATION_CREDENTIALS` or workload identity
+
+### Configuration
+
+```env
+GMAIL_SENDER_EMAIL=no-reply@eldaa.org.nz
+```
+
+---
+
+## Related: Google Docs (Post-Payment)
+
+After successful payment, a **Google Document** is created for internal review (not sent to applicant):
+
+- `createApplicationReviewDoc()` — Professional membership (`stripe-webhook.ts`)
+- `createAssociateApplicationReviewDoc()` — Associate membership (`stripe-webhook.ts`)
+
+Documents are saved to `GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID` (falls back to `GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID`).
+
+---
+
+## Adding a New Notification
+
+### 1. Define the trigger
+
+Decide **when** the notification should fire (form submission, payment, status change, etc.).
+
+### 2. Choose the channel
+
+- **Email:** Use `sendEmail()` from `src/lib/email-sender.ts`
+- **Google Doc:** Use `createApplicationReviewDoc()` pattern from `src/lib/google-docs.ts`
+
+### 3. Implement
+
+```typescript
+import { sendEmail } from '@/lib/email-sender';
+
+// In your handler:
+await sendEmail({
+  to: applicant.email,
+  subject: 'Your ELDAA Application - Next Steps',
+  body: `Dear ${applicant.firstName},\n\n...`,
+});
+```
+
+### 4. Document it
+
+Add the notification type to the table above with:
+- Trigger condition
+- UI location where it is promised (if applicable)
+- Implementation file
+
+### 5. Non-blocking rule
+
+Email failures should be logged but not fail the parent operation:
+
+```typescript
+try {
+  await sendEmail({ ... });
+} catch (err) {
+  logger.error({ err, applicantId }, 'Failed to send notification email');
+}
+```

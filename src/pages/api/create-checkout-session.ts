@@ -244,6 +244,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Save payment method for future off-session charges (renewal billing)
   params.payment_intent_data = {
     setup_future_usage: "off_session",
+    receipt_email: email,
   };
 
   if (customerInfo.id) {
