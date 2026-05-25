@@ -9,3 +9,4 @@ dist
 .data/
 .wolf/
 .claude/
+coverage/
