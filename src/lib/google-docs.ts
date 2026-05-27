@@ -20,6 +20,34 @@ function getDriveClient() {
   return google.drive({ version: "v3", auth });
 }
 
+async function ensureDriveFolderExists(
+  drive: ReturnType<typeof google.drive>,
+  parentId: string,
+  folderName: string
+): Promise<string> {
+  const response = await drive.files.list({
+    q: `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: "files(id, name)",
+    spaces: "drive",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  if (response.data.files && response.data.files.length > 0) {
+    return response.data.files[0].id!;
+  }
+  const created = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    },
+    fields: "id",
+    supportsAllDrives: true,
+  });
+  if (!created.data.id) throw new Error(`Failed to create folder ${folderName}`);
+  return created.data.id;
+}
+
 // ---------------------------------------------------------------------------
 // Associate Application (single-page form)
 // ---------------------------------------------------------------------------
@@ -123,7 +151,8 @@ export async function createAssociateApplicationReviewDoc(
   application: AssociateApplicationData,
 ): Promise<string> {
   const docs = getDocsClient();
-  const folderId =
+  const drive = getDriveClient();
+  const rootFolderId =
     process.env.GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID?.trim() ||
     process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim() ||
     "";
@@ -132,13 +161,18 @@ export async function createAssociateApplicationReviewDoc(
 
   let docId: string | undefined;
 
-  if (folderId) {
-    const drive = getDriveClient();
+  if (rootFolderId) {
+    const amFolderId = await ensureDriveFolderExists(drive, rootFolderId, "AM Applications");
+    const applicantFolderId = await ensureDriveFolderExists(
+      drive,
+      amFolderId,
+      `${application.firstName}_${application.lastName}`.replace(/[^a-zA-Z0-9]/g, "_")
+    );
     const created = await drive.files.create({
       requestBody: {
         name: docTitle,
         mimeType: "application/vnd.google-apps.document",
-        parents: [folderId],
+        parents: [applicantFolderId],
       },
       fields: "id",
       supportsAllDrives: true,
@@ -386,7 +420,8 @@ export async function createApplicationReviewDoc(
   applicant: ApplicantInfo
 ): Promise<string> {
   const docs = getDocsClient();
-  const folderId =
+  const drive = getDriveClient();
+  const rootFolderId =
     process.env.GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID?.trim() ||
     process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim() ||
     "";
@@ -395,16 +430,19 @@ export async function createApplicationReviewDoc(
 
   let docId: string | undefined;
 
-  // Prefer creating the Google Doc directly inside a configured Drive folder.
-  // Service accounts commonly do not have a usable "root" My Drive, so
-  // creating in root and then moving can fail with permission errors.
-  if (folderId) {
-    const drive = getDriveClient();
+  if (rootFolderId) {
+    // Ensure PM Applications subfolder exists, then create doc inside it
+    const pmFolderId = await ensureDriveFolderExists(drive, rootFolderId, "PM Applications");
+    const applicantFolderId = await ensureDriveFolderExists(
+      drive,
+      pmFolderId,
+      `${applicant.firstName}_${applicant.lastName}`.replace(/[^a-zA-Z0-9]/g, "_")
+    );
     const created = await drive.files.create({
       requestBody: {
         name: docTitle,
         mimeType: "application/vnd.google-apps.document",
-        parents: [folderId],
+        parents: [applicantFolderId],
       },
       fields: "id",
       supportsAllDrives: true,
@@ -439,4 +477,219 @@ export async function createApplicationReviewDoc(
   });
 
   return docUrl;
+}
+
+// ---------------------------------------------------------------------------
+// Application Index Docs
+// ---------------------------------------------------------------------------
+
+type IndexEntry = {
+  name: string;
+  email: string;
+  docUrl: string;
+  folderUrl: string;
+};
+
+function buildIndexContent(title: string, entries: IndexEntry[]) {
+  const requests: object[] = [];
+  let index = 1;
+
+  function insert(text: string) {
+    requests.push({ insertText: { text, location: { index } } });
+    index += text.length;
+  }
+
+  function setStyle(startIndex: number, endIndex: number, bold: boolean, fontSize: number) {
+    if (endIndex <= startIndex) return;
+    requests.push({
+      updateTextStyle: {
+        range: { startIndex, endIndex },
+        textStyle: { bold, fontSize: { magnitude: fontSize, unit: "PT" } },
+        fields: "bold,fontSize",
+      },
+    });
+  }
+
+  function h1(text: string) {
+    const start = index;
+    insert(text + "\n");
+    setStyle(start, start + text.length, true, 20);
+  }
+
+  function linkLine(label: string, url: string) {
+    insert(`${label}: ${url}\n`);
+  }
+
+  function gap() {
+    insert("\n");
+  }
+
+  h1(title);
+  gap();
+  insert(`Total: ${entries.length} application(s)\n`);
+  gap();
+
+  entries.forEach((e) => {
+    insert(`${e.name} (${e.email})\n`);
+    linkLine("  Review Doc", e.docUrl);
+    linkLine("  Folder", e.folderUrl);
+    gap();
+  });
+
+  return requests;
+}
+
+async function getOrCreateIndexDoc(
+  drive: ReturnType<typeof google.drive>,
+  _docs: ReturnType<typeof google.docs>,
+  _parentFolderId: string,
+  indexFolderId: string,
+  docName: string
+): Promise<{ docId: string; docUrl: string }> {
+  const existing = await drive.files.list({
+    q: `name='${docName}' and '${indexFolderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
+    fields: "files(id, name)",
+    spaces: "drive",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  if (existing.data.files && existing.data.files.length > 0) {
+    const id = existing.data.files[0].id!;
+    return { docId: id, docUrl: `https://docs.google.com/document/d/${id}` };
+  }
+
+  const created = await drive.files.create({
+    requestBody: {
+      name: docName,
+      mimeType: "application/vnd.google-apps.document",
+      parents: [indexFolderId],
+    },
+    fields: "id",
+    supportsAllDrives: true,
+  });
+  const docId = created.data.id!;
+  return { docId, docUrl: `https://docs.google.com/document/d/${docId}` };
+}
+
+async function updateIndexDoc(
+  docs: ReturnType<typeof google.docs>,
+  docId: string,
+  title: string,
+  entries: IndexEntry[]
+): Promise<void> {
+  try {
+    const doc = await docs.documents.get({ documentId: docId });
+    const content = doc.data.body?.content;
+    if (content && content.length > 0) {
+      const last = content[content.length - 1];
+      const endIndex = (last as any).endIndex ?? 1;
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: {
+          requests: [{ deleteContentRange: { range: { startIndex: 1, endIndex } } }],
+        },
+      });
+    }
+  } catch {
+    // If get/clear fails, just overwrite
+  }
+
+  const requests = buildIndexContent(title, entries);
+  if (requests.length > 0) {
+    await docs.documents.batchUpdate({
+      documentId: docId,
+      requestBody: { requests: requests as never[] },
+    });
+  }
+}
+
+async function listApplicantFolders(
+  drive: ReturnType<typeof google.drive>,
+  parentFolderId: string
+): Promise<{ id: string; name: string }[]> {
+  const result = await drive.files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed=false`,
+    fields: "files(id, name)",
+    spaces: "drive",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  return (result.data.files ?? []).filter((f) => f.id && f.name).map((f) => ({ id: f.id!, name: f.name! }));
+}
+
+export async function refreshPmIndexDoc(): Promise<void> {
+  const rootFolderId = process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim();
+  if (!rootFolderId) return;
+
+  const drive = getDriveClient();
+  const docs = getDocsClient();
+
+  const pmFolderId = await ensureDriveFolderExists(drive, rootFolderId, "PM Applications");
+  const { docId, docUrl } = await getOrCreateIndexDoc(
+    drive, docs, rootFolderId, pmFolderId, "PM Applications — Index"
+  );
+
+  const subfolders = await listApplicantFolders(drive, pmFolderId);
+  const entries: IndexEntry[] = [];
+
+  for (const folder of subfolders) {
+    const docsInFolder = await drive.files.list({
+      q: `mimeType='application/vnd.google-apps.document' and '${folder.id}' in parents and trashed=false`,
+      fields: "files(id)",
+      spaces: "drive",
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    const doc = docsInFolder.data.files?.[0];
+    const email = folder.name.match(/\(([^)]+)\)$/)?.[1] ?? "";
+    entries.push({
+      name: folder.name,
+      email,
+      docUrl: doc ? `https://docs.google.com/document/d/${doc.id}` : "",
+      folderUrl: `https://drive.google.com/drive/folders/${folder.id}`,
+    });
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  await updateIndexDoc(docs, docId, "PM Applications — Index", entries);
+  logger.info("pm_index_doc_refreshed", { docUrl, entryCount: entries.length });
+}
+
+export async function refreshAmIndexDoc(): Promise<void> {
+  const rootFolderId = process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim();
+  if (!rootFolderId) return;
+
+  const drive = getDriveClient();
+  const docs = getDocsClient();
+
+  const amFolderId = await ensureDriveFolderExists(drive, rootFolderId, "AM Applications");
+  const { docId, docUrl } = await getOrCreateIndexDoc(
+    drive, docs, rootFolderId, amFolderId, "AM Applications — Index"
+  );
+
+  const subfolders = await listApplicantFolders(drive, amFolderId);
+  const entries: IndexEntry[] = [];
+
+  for (const folder of subfolders) {
+    const docsInFolder = await drive.files.list({
+      q: `mimeType='application/vnd.google-apps.document' and '${folder.id}' in parents and trashed=false`,
+      fields: "files(id)",
+      spaces: "drive",
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    const doc = docsInFolder.data.files?.[0];
+    const email = folder.name.match(/\(([^)]+)\)$/)?.[1] ?? "";
+    entries.push({
+      name: folder.name,
+      email,
+      docUrl: doc ? `https://docs.google.com/document/d/${doc.id}` : "",
+      folderUrl: `https://drive.google.com/drive/folders/${folder.id}`,
+    });
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  await updateIndexDoc(docs, docId, "AM Applications — Index", entries);
+  logger.info("am_index_doc_refreshed", { docUrl, entryCount: entries.length });
 }

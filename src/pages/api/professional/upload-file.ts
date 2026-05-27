@@ -447,9 +447,12 @@ export const POST: APIRoute = async ({ request }) => {
     const appsFolderId = process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim();
     if (!appsFolderId) throw new Error("GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID not configured");
 
+    stage = "ensure_pm_applications_folder";
+    const pmFolderId = await ensureFolderExists(drive, appsFolderId, "PM Applications");
+
     stage = "ensure_applicant_folder";
     const folderName = `${applicant.firstName}_${applicant.lastName}`.replace(/[^a-zA-Z0-9]/g, "_");
-    const applicantFolderId = await ensureFolderExists(drive, appsFolderId, folderName);
+    const applicantFolderId = await ensureFolderExists(drive, pmFolderId, folderName);
     stage = "ensure_doc_folder";
     const docFolderId = await ensureFolderExists(drive, applicantFolderId, docType);
 

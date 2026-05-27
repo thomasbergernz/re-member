@@ -108,22 +108,28 @@ function makeBinaryRequest(
 }
 
 function seedSuccessfulDriveCalls(finalFileId = "drive-file-123") {
+  // PM Applications folder (list→create), applicant folder (list→create), doc folder (list→create), file
   mockDriveFilesList
-    .mockResolvedValueOnce({ data: { files: [] } })
-    .mockResolvedValueOnce({ data: { files: [] } });
+    .mockResolvedValueOnce({ data: { files: [] } }) // PM Applications not found
+    .mockResolvedValueOnce({ data: { files: [] } }) // applicant folder not found
+    .mockResolvedValueOnce({ data: { files: [] } }); // doc folder not found
 
   mockDriveFilesCreate
+    .mockResolvedValueOnce({ data: { id: "pm-applications-folder-id" } })
     .mockResolvedValueOnce({ data: { id: "applicant-folder-id" } })
     .mockResolvedValueOnce({ data: { id: "doc-folder-id" } })
     .mockResolvedValueOnce({ data: { id: finalFileId } });
 }
 
 function seedFolderCreationCalls() {
+  // PM Applications folder (list→create), applicant folder (list→create), doc folder (list→create)
   mockDriveFilesList
-    .mockResolvedValueOnce({ data: { files: [] } })
-    .mockResolvedValueOnce({ data: { files: [] } });
+    .mockResolvedValueOnce({ data: { files: [] } }) // PM Applications not found
+    .mockResolvedValueOnce({ data: { files: [] } }) // applicant folder not found
+    .mockResolvedValueOnce({ data: { files: [] } }); // doc folder not found
 
   mockDriveFilesCreate
+    .mockResolvedValueOnce({ data: { id: "pm-applications-folder-id" } })
     .mockResolvedValueOnce({ data: { id: "applicant-folder-id" } })
     .mockResolvedValueOnce({ data: { id: "doc-folder-id" } });
 }
@@ -201,7 +207,7 @@ describe("POST /api/professional/upload-file", () => {
 
     expect(response.status).toBe(400);
     expect(json.error).toContain("File content does not match declared type");
-    expect(mockDriveFilesCreate).toHaveBeenCalledTimes(2);
+    expect(mockDriveFilesCreate).toHaveBeenCalledTimes(3);
     expect(mockAddDriveFile).not.toHaveBeenCalled();
   });
 

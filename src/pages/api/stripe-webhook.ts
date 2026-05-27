@@ -12,7 +12,7 @@ import {
 import { appendCheckoutLog } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 import { getApplicantById, markApplicantPaid } from "../../lib/upload-sheet";
-import { createApplicationReviewDoc, createAssociateApplicationReviewDoc } from "../../lib/google-docs";
+import { createApplicationReviewDoc, createAssociateApplicationReviewDoc, refreshPmIndexDoc, refreshAmIndexDoc } from "../../lib/google-docs";
 import { sendProfessionalConfirmation, sendProfessionalApplicationNotification, sendAssociateConfirmation } from "../../lib/email-sender";
 
 // Initialize Sentry lazily — only when DSN is present
@@ -223,7 +223,7 @@ async function handleCheckoutCompleted(
 
   // Create a Google Doc review document for professional applications
   if (plan === "professional" && applicantId && professionalApplicant) {
-    createApplicationReviewDoc(professionalApplicant).then((docUrl) => {
+    createApplicationReviewDoc(professionalApplicant).then(async (docUrl) => {
       const membershipEmail = "membership@eldaa.org.nz";
       const applicantFullName = `${professionalApplicant.firstName} ${professionalApplicant.lastName}`;
       sendProfessionalApplicationNotification(membershipEmail, applicantFullName, docUrl).catch((err) => {
@@ -233,6 +233,11 @@ async function handleCheckoutCompleted(
           sessionId: session.id,
           error: msg,
         });
+      });
+      // Refresh PM index doc
+      refreshPmIndexDoc().catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("checkout_completed.pm_index_refresh_failed", { applicantId, sessionId: session.id, error: msg });
       });
     }).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
@@ -271,7 +276,7 @@ async function handleCheckoutCompleted(
       applicationDate: "",
       checkoutStatus: "paid",
     };
-    createAssociateApplicationReviewDoc(associateDocData).then((docUrl) => {
+    createAssociateApplicationReviewDoc(associateDocData).then(async (docUrl) => {
       const fullName = `${associateDocData.firstName} ${associateDocData.lastName}`;
       sendAssociateConfirmation(
         associateDocData.email,
@@ -284,6 +289,11 @@ async function handleCheckoutCompleted(
           sessionId: session.id,
           error: msg,
         });
+      });
+      // Refresh AM index doc
+      refreshAmIndexDoc().catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("checkout_completed.am_index_refresh_failed", { associateApplicationId, sessionId: session.id, error: msg });
       });
     }).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
