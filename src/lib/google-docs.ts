@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { logger } from "./logger";
 import type { ApplicantInfo } from "./upload-sheet";
+import { listDriveFiles } from "./drive-files";
 
 function getDocsClient() {
   const email = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL?.trim();
@@ -174,7 +175,9 @@ export async function createAssociateApplicationReviewDoc(
 // Professional Application (8-step wizard)
 // ---------------------------------------------------------------------------
 
-function buildContent(applicant: ApplicantInfo) {
+type DriveFile = { fileId: string; docType: string; originalFilename: string };
+
+function buildContent(applicant: ApplicantInfo, driveFiles: DriveFile[]) {
   const requests: object[] = [];
   // Google Docs insertText locations are 1-based in a newly created doc.
   let index = 1;
@@ -342,16 +345,20 @@ function buildContent(applicant: ApplicantInfo) {
   // Documents Uploaded
   h2("Documents Uploaded");
   const docCounts = [
-    ["Training certificates", applicant.docTrainingCount],
-    ["Code of Ethics", applicant.docEthicsCount],
-    ["Criminal Records Check", applicant.docCriminalCount],
-    ["Advanced Care Planning", applicant.docAdvanceCareCount],
-    ["Assisted Dying Training", applicant.docAssistedDyingCount],
-    ["Fundamentals of Palliative Care", applicant.docFundamentalsCount],
-    ["Professional Indemnity Insurance", applicant.docInsuranceCount],
+    ["Training certificates", applicant.docTrainingCount, "training"],
+    ["Code of Ethics", applicant.docEthicsCount, "ethics"],
+    ["Criminal Records Check", applicant.docCriminalCount, "criminal"],
+    ["Advanced Care Planning", applicant.docAdvanceCareCount, "advance_care"],
+    ["Assisted Dying Training", applicant.docAssistedDyingCount, "assisted_dying"],
+    ["Fundamentals of Palliative Care", applicant.docFundamentalsCount, "fundamentals"],
+    ["Professional Indemnity Insurance", applicant.docInsuranceCount, "insurance"],
   ];
-  docCounts.forEach(([label, count]) => {
+  docCounts.forEach(([label, count, docType]) => {
     p(`${label}: ${count || 0} file(s)`);
+    const filesForType = driveFiles.filter((f) => f.docType === docType);
+    filesForType.forEach((f) => {
+      p(`  ${f.originalFilename}: https://drive.google.com/file/d/${f.fileId}/view`);
+    });
   });
   gap();
 
@@ -413,7 +420,8 @@ export async function createApplicationReviewDoc(
   if (!docId) throw new Error("Failed to create Google Doc");
 
   // Build and push content
-  const requests = buildContent(applicant);
+  const driveFiles = await listDriveFiles(applicant.id);
+  const requests = buildContent(applicant, driveFiles);
   if (requests.length > 0) {
     await docs.documents.batchUpdate({
       documentId: docId,
@@ -427,6 +435,7 @@ export async function createApplicationReviewDoc(
     docId,
     docUrl,
     folderId: folderId || null,
+    driveFilesCount: driveFiles.length,
   });
 
   return docUrl;
