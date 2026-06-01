@@ -8,6 +8,7 @@ import Stripe from "stripe";
 const mockSendProfessionalConfirmation = vi.fn();
 const mockSendProfessionalApplicationNotification = vi.fn();
 const mockSendAssociateConfirmation = vi.fn();
+const mockSendAssociateApplicationNotification = vi.fn();
 const mockAppendCheckoutLog = vi.fn();
 const mockCreateApplicationReviewDoc = vi.fn();
 const mockCreateAssociateApplicationReviewDoc = vi.fn();
@@ -24,6 +25,7 @@ vi.mock("../../lib/email-sender", () => ({
   sendProfessionalConfirmation: mockSendProfessionalConfirmation,
   sendProfessionalApplicationNotification: mockSendProfessionalApplicationNotification,
   sendAssociateConfirmation: mockSendAssociateConfirmation,
+  sendAssociateApplicationNotification: mockSendAssociateApplicationNotification,
 }));
 
 vi.mock("../../lib/google-sheets", () => ({
@@ -286,6 +288,7 @@ describe("stripe-webhook", () => {
       mockAppendCheckoutLog.mockResolvedValue(undefined);
       mockCreateAssociateApplicationReviewDoc.mockResolvedValue("https://docs.google.com/document/d/assoc123");
       mockSendAssociateConfirmation.mockResolvedValue(undefined);
+      mockSendAssociateApplicationNotification.mockResolvedValue(undefined);
 
       const { POST } = await import("../../pages/api/stripe-webhook");
       const session = makeCheckoutSession({
@@ -309,6 +312,12 @@ describe("stripe-webhook", () => {
         "jane@example.com",
         "Bob Smith",
         true,
+        "assoc_app_456"
+      );
+      expect(mockSendAssociateApplicationNotification).toHaveBeenCalledWith(
+        "admin@eldaa.org.nz",
+        "Bob Smith",
+        "https://docs.google.com/document/d/assoc123",
         "assoc_app_456"
       );
     });

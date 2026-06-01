@@ -13,7 +13,7 @@ import { appendCheckoutLog } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 import { getApplicantById, markApplicantPaid } from "../../lib/upload-sheet";
 import { createApplicationReviewDoc, createAssociateApplicationReviewDoc, refreshPmIndexDoc, refreshAmIndexDoc } from "../../lib/google-docs";
-import { sendProfessionalConfirmation, sendProfessionalApplicationNotification, sendAssociateConfirmation } from "../../lib/email-sender";
+import { sendProfessionalConfirmation, sendProfessionalApplicationNotification, sendAssociateConfirmation, sendAssociateApplicationNotification } from "../../lib/email-sender";
 
 // Initialize Sentry lazily — only when DSN is present
 function getSentry() {
@@ -287,6 +287,21 @@ async function handleCheckoutCompleted(
       ).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("checkout_completed.associate_confirmation_failed", {
+          associateApplicationId,
+          sessionId: session.id,
+          error: msg,
+        });
+      });
+
+      // Send internal committee notification for AM
+      sendAssociateApplicationNotification(
+        "admin@eldaa.org.nz",
+        fullName,
+        docUrl,
+        associateApplicationId
+      ).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("checkout_completed.associate_internal_notification_failed", {
           associateApplicationId,
           sessionId: session.id,
           error: msg,

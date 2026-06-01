@@ -82,6 +82,7 @@ export type EmailTemplate =
   | "confirmation"
   | "associate_confirmation"
   | "application_notification"
+  | "associate_application_notification"
   | "resume_link";
 
 export async function sendEmail(
@@ -182,6 +183,29 @@ ELDAA Committee`;
   await sendEmail(
     { to: toEmail, subject, body, replyTo: "membership@eldaa.org.nz" },
     { template: "associate_confirmation", applicantId: associateApplicationId }
+  );
+}
+
+export async function sendAssociateApplicationNotification(
+  toEmail: string,
+  associateName: string,
+  docUrl: string,
+  associateApplicationId?: string
+): Promise<void> {
+  const subject = `New Associate Membership Application — ${associateName}`;
+
+  const body = `A new associate membership application has been received and the review document is ready.
+
+Applicant: ${associateName}
+Review document: ${docUrl}
+
+Please log in to review the application and continue the membership process.
+
+ELDAA`;
+
+  await sendEmail(
+    { to: toEmail, subject, body },
+    { template: "associate_application_notification", applicantId: associateApplicationId }
   );
 }
 
