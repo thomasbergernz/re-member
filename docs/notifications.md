@@ -14,7 +14,7 @@
 - Only on **new** applicant creation (not on subsequent form updates/resumes)
 - Applicant must have provided an email address
 
-**Template:** `sendResumeLink(toEmail, fullName, resumeLink)` in `src/lib/email-sender.ts`
+**Template:** `sendResumeLink(toEmail, fullName, resumeLink, applicantId?)` in `src/lib/email-sender.ts`
 
 ```
 Subject: Your ELDAA Professional Membership Application
@@ -36,6 +36,8 @@ ELDAA
 
 **Delivery:** Non-blocking — failures are logged but do not fail the application submission.
 
+**Audit:** Resume link emails are logged to the `Email log` sheet.
+
 ---
 
 ## Planned / Not Yet Implemented
@@ -56,7 +58,7 @@ The following notifications are described in the UI but **not yet implemented**:
 
 **To:** Applicant's email address (from sheet)
 
-**Template:** `sendProfessionalConfirmation(toEmail, fullName)` in `src/lib/email-sender.ts`
+**Template:** `sendProfessionalConfirmation(toEmail, fullName, applicantId?)` in `src/lib/email-sender.ts`
 
 ```
 Subject: Your ELDAA Professional Membership Application
@@ -73,6 +75,8 @@ ELDAA Committee
 
 **Delivery:** Non-blocking — failures are logged but do not fail webhook processing.
 
+**Audit:** Confirmation email sends are logged to the `Email log` sheet (columns: timestamp, to, subject, template, applicantId, result, error).
+
 ---
 
 ### 3. Internal Application Notification (ELDAA Membership Team)
@@ -81,7 +85,7 @@ ELDAA Committee
 
 **To:** `membership@eldaa.org.nz` (hardcoded)
 
-**Template:** `sendProfessionalApplicationNotification(toEmail, applicantName, docUrl)` in `src/lib/email-sender.ts`
+**Template:** `sendProfessionalApplicationNotification(toEmail, applicantName, docUrl, applicantId?)` in `src/lib/email-sender.ts`
 
 ```
 Subject: New Professional Membership Application — {applicantName}
@@ -98,6 +102,8 @@ ELDAA
 
 **Delivery:** Non-blocking — failures are logged but do not fail webhook processing.
 
+**Audit:** Notification emails are logged to the `Email log` sheet.
+
 ---
 
 ### 4. Associate Membership Confirmation (Applicant Email)
@@ -108,7 +114,7 @@ ELDAA
 
 **Reply-To:** `membership@eldaa.org.nz`
 
-**Template:** `sendAssociateConfirmation(toEmail, fullName, listOnPage)` in `src/lib/email-sender.ts`
+**Template:** `sendAssociateConfirmation(toEmail, fullName, listOnPage, associateApplicationId?)` in `src/lib/email-sender.ts`
 
 ```
 Subject: Welcome to ELDAA — Associate Membership Confirmed
@@ -138,6 +144,8 @@ ELDAA Committee
 ```
 
 **Delivery:** Non-blocking — fires after Google Doc creation succeeds.
+
+**Audit:** Confirmation emails are logged to the `Email log` sheet.
 
 ---
 
@@ -169,6 +177,22 @@ ELDAA Committee
 ```env
 GMAIL_SENDER_EMAIL=no-reply@eldaa.org.nz
 ```
+
+### Audit Logging
+
+All outgoing emails are logged to the `Email log` tab in the same spreadsheet that holds application data. The sheet has 7 columns:
+
+| Column | Content |
+|---|---|
+| A | timestamp (ISO 8601) |
+| B | to (recipient email) |
+| C | subject |
+| D | template (one of: `confirmation`, `associate_confirmation`, `application_notification`, `resume_link`) |
+| E | applicantId (or associateApplicationId) |
+| F | result (`sent` or `failed`) |
+| G | error (present only when result is `failed`) |
+
+Logging is best-effort — Gmail send completes before the sheet write is attempted. If the audit write fails, the error is re-thrown to the caller (for logging purposes), but the email itself has already been sent.
 
 ---
 

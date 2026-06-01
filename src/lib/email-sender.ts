@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { appendEmailLog } from "./google-sheets";
 
 interface EmailParams {
   to: string;
@@ -77,22 +78,54 @@ export function createMessage(params: EmailParams, senderEmail: string): string 
   return Buffer.from(headers.join("\r\n")).toString("base64url");
 }
 
-export async function sendEmail(params: EmailParams): Promise<void> {
+export type EmailTemplate =
+  | "confirmation"
+  | "associate_confirmation"
+  | "application_notification"
+  | "resume_link";
+
+export async function sendEmail(
+  params: EmailParams,
+  meta?: { template: EmailTemplate; applicantId?: string }
+): Promise<void> {
   const senderEmail = getSenderEmail();
   const gmail = await getGmailClient();
   const message = createMessage(params, senderEmail);
+  const timestamp = new Date().toISOString();
 
-  await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      raw: message,
-    },
-  });
+  try {
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: message,
+      },
+    });
+    await appendEmailLog({
+      timestamp,
+      to: params.to,
+      subject: params.subject,
+      template: meta?.template ?? "unknown",
+      applicantId: meta?.applicantId,
+      result: "sent",
+    });
+  } catch (err) {
+    await appendEmailLog({
+      timestamp,
+      to: params.to,
+      subject: params.subject,
+      template: meta?.template ?? "unknown",
+      applicantId: meta?.applicantId,
+      result: "failed",
+      error: String(err),
+    });
+    throw err;
+  }
 }
 
 export async function sendProfessionalConfirmation(
   toEmail: string,
-  fullName: string
+  fullName: string,
+  applicantId?: string
 ): Promise<void> {
   const subject = "Your ELDAA Professional Membership Application";
 
@@ -105,17 +138,17 @@ We look forward to seeing you soon.
 Kia ora,
 ELDAA Committee`;
 
-  await sendEmail({
-    to: toEmail,
-    subject,
-    body,
-  });
+  await sendEmail(
+    { to: toEmail, subject, body },
+    { template: "confirmation", applicantId }
+  );
 }
 
 export async function sendAssociateConfirmation(
   toEmail: string,
   fullName: string,
-  listOnPage: boolean
+  listOnPage: boolean,
+  associateApplicationId?: string
 ): Promise<void> {
   const listNote = listOnPage
     ? "You have requested to be listed on our Associate Member list on our website — we will process that shortly."
@@ -146,18 +179,17 @@ Again, welcome on board ☺
 Kia ora,
 ELDAA Committee`;
 
-  await sendEmail({
-    to: toEmail,
-    subject,
-    body,
-    replyTo: "membership@eldaa.org.nz",
-  });
+  await sendEmail(
+    { to: toEmail, subject, body, replyTo: "membership@eldaa.org.nz" },
+    { template: "associate_confirmation", applicantId: associateApplicationId }
+  );
 }
 
 export async function sendProfessionalApplicationNotification(
   toEmail: string,
   applicantName: string,
-  docUrl: string
+  docUrl: string,
+  applicantId?: string
 ): Promise<void> {
   const subject = `New Professional Membership Application — ${applicantName}`;
 
@@ -170,17 +202,17 @@ Please log in to review the application and continue the membership process.
 
 ELDAA`;
 
-  await sendEmail({
-    to: toEmail,
-    subject,
-    body,
-  });
+  await sendEmail(
+    { to: toEmail, subject, body },
+    { template: "application_notification", applicantId }
+  );
 }
 
 export async function sendResumeLink(
   toEmail: string,
   fullName: string,
-  resumeLink: string
+  resumeLink: string,
+  applicantId?: string
 ): Promise<void> {
   const subject = "Your ELDAA Professional Membership Application";
 
@@ -198,9 +230,8 @@ If you did not start this application, please ignore this email.
 Best regards,
 ELDAA`;
 
-  await sendEmail({
-    to: toEmail,
-    subject,
-    body,
-  });
+  await sendEmail(
+    { to: toEmail, subject, body },
+    { template: "resume_link", applicantId }
+  );
 }

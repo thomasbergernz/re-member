@@ -53,6 +53,10 @@ describe("google-sheets", () => {
     const mod = await import("./google-sheets");
     return mod.appendAssociateApplication;
   }
+  async function getAppendEmailLog() {
+    const mod = await import("./google-sheets");
+    return mod.appendEmailLog;
+  }
 
   describe("appendCheckoutLog", () => {
     it("appends a correctly formatted row to the spreadsheet", async () => {
@@ -196,6 +200,100 @@ describe("google-sheets", () => {
       });
 
       expect(mockAppend).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("appendEmailLog", () => {
+    it("appends a sent entry to the Email log sheet", async () => {
+      const appendEmailLog = await getAppendEmailLog();
+
+      await appendEmailLog({
+        timestamp: "2026-06-01T09:00:00.000Z",
+        to: "jane@example.com",
+        subject: "Your ELDAA Professional Membership Application",
+        template: "confirmation",
+        applicantId: "app_abc123",
+        result: "sent",
+      });
+
+      expect(mockAppend).toHaveBeenCalledOnce();
+      expect(mockAppend).toHaveBeenCalledWith({
+        spreadsheetId: "1Zbqn6BSExD5V9cPmA2rCJ2rN5f7gnP9fHjP0s5oq_I8",
+        range: "'Email log'!A1:G1",
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [[
+            "2026-06-01T09:00:00.000Z",
+            "jane@example.com",
+            "Your ELDAA Professional Membership Application",
+            "confirmation",
+            "app_abc123",
+            "sent",
+            "",
+          ]],
+        },
+      });
+    });
+
+    it("appends a failed entry with error message", async () => {
+      const appendEmailLog = await getAppendEmailLog();
+
+      await appendEmailLog({
+        timestamp: "2026-06-01T09:00:00.000Z",
+        to: "jane@example.com",
+        subject: "Your ELDAA Professional Membership Application",
+        template: "resume_link",
+        applicantId: "app_abc123",
+        result: "failed",
+        error: "ENOTFOUND",
+      });
+
+      const call = mockAppend.mock.calls[0][0];
+      expect(call.requestBody.values[0][5]).toBe("failed");
+      expect(call.requestBody.values[0][6]).toBe("ENOTFOUND");
+    });
+
+    it("omits applicantId when not provided", async () => {
+      const appendEmailLog = await getAppendEmailLog();
+
+      await appendEmailLog({
+        timestamp: "2026-06-01T09:00:00.000Z",
+        to: "membership@eldaa.org.nz",
+        subject: "New Professional Membership Application — Jane Doe",
+        template: "application_notification",
+        result: "sent",
+      });
+
+      const call = mockAppend.mock.calls[0][0];
+      expect(call.requestBody.values[0][4]).toBe("");
+    });
+
+    it("omits error when not provided", async () => {
+      const appendEmailLog = await getAppendEmailLog();
+
+      await appendEmailLog({
+        timestamp: "2026-06-01T09:00:00.000Z",
+        to: "bob@example.com",
+        subject: "Welcome to ELDAA — Associate Membership Confirmed",
+        template: "associate_confirmation",
+        result: "sent",
+      });
+
+      const call = mockAppend.mock.calls[0][0];
+      expect(call.requestBody.values[0][6]).toBe("");
+    });
+
+    it("throws when GOOGLE_SHEETS_SPREADSHEET_ID is missing", async () => {
+      delete process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+      const appendEmailLog = await getAppendEmailLog();
+
+      await expect(appendEmailLog({
+        timestamp: "2026-06-01T09:00:00.000Z",
+        to: "jane@example.com",
+        subject: "Test",
+        template: "confirmation",
+        result: "sent",
+      })).rejects.toThrow("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
     });
   });
 

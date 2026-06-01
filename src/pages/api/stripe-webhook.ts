@@ -178,7 +178,8 @@ async function handleCheckoutCompleted(
     if (professionalApplicant?.email && professionalApplicant?.firstName) {
       sendProfessionalConfirmation(
         professionalApplicant.email,
-        professionalApplicant.firstName
+        professionalApplicant.firstName,
+        applicantId
       ).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("checkout_completed.confirmation_email_failed", {
@@ -226,7 +227,7 @@ async function handleCheckoutCompleted(
     createApplicationReviewDoc(professionalApplicant).then(async (docUrl) => {
       const membershipEmail = "membership@eldaa.org.nz";
       const applicantFullName = `${professionalApplicant.firstName} ${professionalApplicant.lastName}`;
-      sendProfessionalApplicationNotification(membershipEmail, applicantFullName, docUrl).catch((err) => {
+      sendProfessionalApplicationNotification(membershipEmail, applicantFullName, docUrl, applicantId).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("checkout_completed.internal_notification_failed", {
           applicantId,
@@ -281,7 +282,8 @@ async function handleCheckoutCompleted(
       sendAssociateConfirmation(
         associateDocData.email,
         fullName,
-        associateListOnPage === "yes"
+        associateListOnPage === "yes",
+        associateApplicationId
       ).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("checkout_completed.associate_confirmation_failed", {

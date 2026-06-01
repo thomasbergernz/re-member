@@ -276,7 +276,7 @@ export const POST: APIRoute = async ({ request, url }) => {
     let emailSent = false;
 
     try {
-      await sendResumeLink(email, fullName, resumeLink);
+      await sendResumeLink(email, fullName, resumeLink, applicantId);
       emailSent = true;
       logger.info("resume_email_sent", { applicantId, email });
     } catch (emailError) {
