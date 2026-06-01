@@ -31,6 +31,7 @@ type AssociateApplicationEntry = {
 };
 
 const ASSOCIATE_APPLICATIONS_SHEET = "Associate Applications";
+const EMAIL_LOG_SHEET = "Email log";
 const ASSOCIATE_APPLICATIONS_HEADERS = [
   "submitted_at",
   "application_id",
@@ -138,6 +139,44 @@ export async function appendCheckoutLog(entry: CheckoutLogEntry): Promise<void> 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: "A1:I1",
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [row],
+    },
+  });
+}
+
+type EmailLogEntry = {
+  timestamp: string;
+  to: string;
+  subject: string;
+  template: string;
+  applicantId?: string;
+  result: "sent" | "failed";
+  error?: string;
+};
+
+export async function appendEmailLog(entry: EmailLogEntry): Promise<void> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
+  if (!spreadsheetId) {
+    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
+  }
+
+  const sheets = getSheetsClient();
+
+  const row = [
+    entry.timestamp,
+    entry.to,
+    entry.subject,
+    entry.template,
+    entry.applicantId ?? "",
+    entry.result,
+    entry.error ?? "",
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `'${EMAIL_LOG_SHEET}'!A1:G1`,
     valueInputOption: "RAW",
     requestBody: {
       values: [row],

@@ -276,7 +276,7 @@ describe("stripe-webhook", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(mockMarkApplicantPaid).toHaveBeenCalledWith("app_123", "cs_test_123");
-      expect(mockSendProfessionalConfirmation).toHaveBeenCalledWith("jane@example.com", "Jane");
+      expect(mockSendProfessionalConfirmation).toHaveBeenCalledWith("jane@example.com", "Jane", "app_123");
     });
 
     it("sends associate confirmation email after associate checkout completes", async () => {
@@ -308,7 +308,8 @@ describe("stripe-webhook", () => {
       expect(mockSendAssociateConfirmation).toHaveBeenCalledWith(
         "jane@example.com",
         "Bob Smith",
-        true
+        true,
+        "assoc_app_456"
       );
     });
   });
