@@ -106,6 +106,29 @@ const MAX_FILE_SIZE_MB = Number.isFinite(parsedMaxFileSizeMb) && parsedMaxFileSi
   : DEFAULT_MAX_FILE_SIZE_MB;
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+// Per-applicant upload queue. Serialises concurrent uploads for the same
+// applicant so the read-modify-write sequence in the handler
+// (getDriveFileCounts -> addDriveFile -> updateDocCount) cannot race and
+// produce a stale doc count. Mirrors the applicantSaveQueues pattern in
+// apply.ts.
+const applicantUploadQueues = new Map<string, Promise<void>>();
+async function queueApplicantUpload(
+  applicantId: string,
+  operation: () => Promise<void>
+): Promise<void> {
+  const previous = applicantUploadQueues.get(applicantId) ?? Promise.resolve();
+  const current = previous
+    .catch(() => {})
+    .then(operation)
+    .finally(() => {
+      if (applicantUploadQueues.get(applicantId) === current) {
+        applicantUploadQueues.delete(applicantId);
+      }
+    });
+  applicantUploadQueues.set(applicantId, current);
+  return current;
+}
+
 // Magic bytes for file type verification
 const MAGIC_BYTES: Record<string, number[]> = {
   "application/pdf": [0x25, 0x50, 0x44, 0x46], // %PDF
@@ -440,110 +463,126 @@ export const POST: APIRoute = async ({ request }) => {
     bufferSize: buffer.length,
   });
 
-  try {
-    stage = "init_drive_client";
-    const drive = getDriveClient();
-    stage = "load_drive_root_folder";
-    const appsFolderId = process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim();
-    if (!appsFolderId) throw new Error("GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID not configured");
+  // Per-applicant serialisation. The full handler (Drive upload + sheet
+  // writes + count refresh) runs inside this queue so concurrent uploads
+  // for the same applicant never overlap. Different applicants still run
+  // in parallel.
+  return queueApplicantUpload(applicant.id, async () => {
+    try {
+      stage = "init_drive_client";
+      const drive = getDriveClient();
+      stage = "load_drive_root_folder";
+      const appsFolderId = process.env.GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID?.trim();
+      if (!appsFolderId) throw new Error("GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID not configured");
 
-    stage = "ensure_pm_applications_folder";
-    const pmFolderId = await ensureFolderExists(drive, appsFolderId, "PM Applications");
+      stage = "ensure_pm_applications_folder";
+      const pmFolderId = await ensureFolderExists(drive, appsFolderId, "PM Applications");
 
-    stage = "ensure_applicant_folder";
-    const folderName = `${applicant.firstName}_${applicant.lastName}`.replace(/[^a-zA-Z0-9]/g, "_");
-    const applicantFolderId = await ensureFolderExists(drive, pmFolderId, folderName);
-    stage = "ensure_doc_folder";
-    const docFolderId = await ensureFolderExists(drive, applicantFolderId, docType);
+      stage = "ensure_applicant_folder";
+      const folderName = `${applicant.firstName}_${applicant.lastName}`.replace(/[^a-zA-Z0-9]/g, "_");
+      const applicantFolderId = await ensureFolderExists(drive, pmFolderId, folderName);
+      stage = "ensure_doc_folder";
+      const docFolderId = await ensureFolderExists(drive, applicantFolderId, docType);
 
-    const ext = filename.split(".").pop() || "pdf";
-    const randomFilename = `${crypto.randomUUID()}.${ext}`;
+      const ext = filename.split(".").pop() || "pdf";
+      const randomFilename = `${crypto.randomUUID()}.${ext}`;
 
-    requestLogger.info("upload_attempt", {
-      stage: "ready_for_drive_upload",
-      applicantId: applicant.id,
-      docType,
-      folderName,
-      applicantFolderId,
-      docFolderId,
-      randomFilename,
-      mimeType,
-      bufferSize: buffer.length,
-    });
+      requestLogger.info("upload_attempt", {
+        stage: "ready_for_drive_upload",
+        applicantId: applicant.id,
+        docType,
+        folderName,
+        applicantFolderId,
+        docFolderId,
+        randomFilename,
+        mimeType,
+        bufferSize: buffer.length,
+      });
 
-    stage = "verify_magic_bytes";
-    if (!verifyMagicBytes(buffer, mimeType)) {
-      const detectedType = detectMimeTypeFromBytes(buffer);
-      if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType)) {
-        requestLogger.warn("upload_file_type_mismatch", {
+      stage = "verify_magic_bytes";
+      if (!verifyMagicBytes(buffer, mimeType)) {
+        const detectedType = detectMimeTypeFromBytes(buffer);
+        if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType)) {
+          requestLogger.warn("upload_file_type_mismatch", {
+            stage,
+            applicantId: applicant.id,
+            tokenPrefix: tokenPrefix(token),
+            docType,
+            filename,
+            declared: mimeType,
+            detected: detectedType,
+            size: buffer.length,
+          });
+          return respond(400, {
+            code: "FILE_SIGNATURE_MISMATCH",
+            error: "File content does not match declared type. Only PDF, JPEG, PNG, GIF, or Word documents are allowed.",
+          });
+        }
+      }
+
+      stage = "upload_to_drive";
+      const created = await drive.files.create({
+        requestBody: { name: randomFilename, parents: [docFolderId] },
+        media: { mimeType, body: Readable.from(buffer) },
+        supportsAllDrives: true,
+        fields: "id",
+      });
+      const createdFileId = created.data.id;
+      if (!createdFileId) throw new Error("Drive API returned no file ID");
+      const driveFileId = createdFileId;
+      requestLogger.info("drive_file_created", {
+        stage,
+        applicantId: applicant.id,
+        docType,
+        driveFileId,
+        randomFilename,
+      });
+
+      const uploadedAt = new Date().toISOString();
+      stage = "persist_drive_file_record";
+      await addDriveFile(applicant.id, docType, filename, randomFilename);
+
+      stage = "refresh_doc_counts";
+      const counts = await getDriveFileCounts(applicant.id);
+      const currentCount = counts[docType as DocType] || 1;
+      stage = "update_doc_count";
+      await updateDocCount(applicant.id, docType, currentCount);
+
+      requestLogger.info("document_uploaded", {
+        stage: "completed",
+        applicantId: applicant.id,
+        docType,
+        filename: randomFilename,
+        driveFileId,
+        size: buffer.length,
+        uploadedAt,
+        currentCount,
+      });
+
+      return respond(200, {
+        success: true,
+        docType,
+        fileId: randomFilename,
+        originalFilename: filename,
+        uploadedAt,
+        message: "Document uploaded successfully.",
+      });
+    } catch (error) {
+      const errorMeta = extractErrorMeta(error);
+      Sentry.captureException(error, {
+        extra: {
+          uploadRequestId,
           stage,
           applicantId: applicant.id,
-          tokenPrefix: tokenPrefix(token),
           docType,
+          tokenPrefix: tokenPrefix(token),
           filename,
-          declared: mimeType,
-          detected: detectedType,
-          size: buffer.length,
-        });
-        return respond(400, {
-          code: "FILE_SIGNATURE_MISMATCH",
-          error: "File content does not match declared type. Only PDF, JPEG, PNG, GIF, or Word documents are allowed.",
-        });
-      }
-    }
-
-    stage = "upload_to_drive";
-    const created = await drive.files.create({
-      requestBody: { name: randomFilename, parents: [docFolderId] },
-      media: { mimeType, body: Readable.from(buffer) },
-      supportsAllDrives: true,
-      fields: "id",
-    });
-    const createdFileId = created.data.id;
-    if (!createdFileId) throw new Error("Drive API returned no file ID");
-    const driveFileId = createdFileId;
-    requestLogger.info("drive_file_created", {
-      stage,
-      applicantId: applicant.id,
-      docType,
-      driveFileId,
-      randomFilename,
-    });
-
-    const uploadedAt = new Date().toISOString();
-    stage = "persist_drive_file_record";
-    await addDriveFile(applicant.id, docType, filename, randomFilename);
-
-    stage = "refresh_doc_counts";
-    const counts = await getDriveFileCounts(applicant.id);
-    const currentCount = counts[docType as DocType] || 1;
-    stage = "update_doc_count";
-    await updateDocCount(applicant.id, docType, currentCount);
-
-    requestLogger.info("document_uploaded", {
-      stage: "completed",
-      applicantId: applicant.id,
-      docType,
-      filename: randomFilename,
-      driveFileId,
-      size: buffer.length,
-      uploadedAt,
-      currentCount,
-    });
-
-    return respond(200, {
-      success: true,
-      docType,
-      fileId: randomFilename,
-      originalFilename: filename,
-      uploadedAt,
-      message: "Document uploaded successfully.",
-    });
-  } catch (error) {
-    const errorMeta = extractErrorMeta(error);
-    Sentry.captureException(error, {
-      extra: {
-        uploadRequestId,
+          mimeType,
+          bufferSize: buffer.length,
+          ...errorMeta,
+        },
+      });
+      requestLogger.error("document_upload_failed", {
         stage,
         applicantId: applicant.id,
         docType,
@@ -552,21 +591,11 @@ export const POST: APIRoute = async ({ request }) => {
         mimeType,
         bufferSize: buffer.length,
         ...errorMeta,
-      },
-    });
-    requestLogger.error("document_upload_failed", {
-      stage,
-      applicantId: applicant.id,
-      docType,
-      tokenPrefix: tokenPrefix(token),
-      filename,
-      mimeType,
-      bufferSize: buffer.length,
-      ...errorMeta,
-    });
-    return respond(500, {
-      code: "UPLOAD_INTERNAL_ERROR",
-      error: "Failed to upload document. Please try again.",
-    });
-  }
+      });
+      return respond(500, {
+        code: "UPLOAD_INTERNAL_ERROR",
+        error: "Failed to upload document. Please try again.",
+      });
+    }
+  });
 };
