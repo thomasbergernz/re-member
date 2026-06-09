@@ -41,6 +41,43 @@ const token = Astro.url.searchParams.get("token");
     </p>
   </div>
 
+  <!-- Access link panel — visible once an applicant/token is known so they
+       can always grab the resume URL without checking email. -->
+  <div
+    id="access-link-panel"
+    class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden"
+  >
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div class="flex-1 min-w-0">
+        <h2 class="m-0 mb-1 text-base font-semibold">Your access link</h2>
+        <p class="m-0 text-sm text-gray-600">
+          Use this link to come back to your application. Copy it, or email it to yourself below.
+        </p>
+        <p
+          id="access-link-url"
+          class="m-0 mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-sm break-all font-mono select-all"
+        ></p>
+        <p id="access-link-status" class="m-0 mt-2 text-sm hidden"></p>
+      </div>
+      <div class="flex flex-col gap-2 sm:w-44 shrink-0">
+        <button
+          id="copy-access-link-btn"
+          type="button"
+          class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+        >
+          Copy link
+        </button>
+        <button
+          id="resend-access-link-btn"
+          type="button"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        >
+          Email me this link
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Registration (step 0 - shown when no token) -->
   <section id="section-register" class="bg-white border border-gray-200 rounded-xl p-4 mt-4">
     <h2 class="m-0 mb-4 text-xl">Start Your Application</h2>
@@ -418,6 +455,18 @@ const token = Astro.url.searchParams.get("token");
     <h2 class="m-0 mb-4 text-xl">Document Upload</h2>
     <p class="text-gray-600 mb-6 text-sm">Upload your supporting documents below. You can upload multiple files per category.</p>
 
+    <div
+      id="upload-wait-banner"
+      class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-900 rounded-lg text-sm flex items-start gap-2"
+      role="status"
+    >
+      <span aria-hidden="true">⏳</span>
+      <span>
+        <strong>Please wait for each file to finish uploading before selecting the next one.</strong>
+        Uploads run one at a time so the system can keep track of your documents correctly.
+      </span>
+    </div>
+
     <div id="progress-info" class="mb-6 p-4 bg-gray-50 rounded-lg">
       <p class="m-0 mb-2 font-semibold">Documents: <span id="upload-count">0</span> / 6 required categories</p>
       <p id="upload-status-text" class="m-0 text-gray-600 text-sm"></p>
@@ -546,6 +595,103 @@ const token = Astro.url.searchParams.get("token");
     link.setAttribute("href", resumeLink);
     link.textContent = resumeLink;
     warning.classList.remove("hidden");
+  }
+
+  function buildResumeLinkFromToken(resumeToken) {
+    if (!resumeToken) return "";
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("token", resumeToken);
+      return `${u.origin}${u.pathname}?${u.searchParams.toString()}`;
+    } catch {
+      return `${window.location.origin}/professional/apply?token=${encodeURIComponent(resumeToken)}`;
+    }
+  }
+
+  function showAccessLinkPanel(resumeLink) {
+    const panel = document.getElementById("access-link-panel");
+    const urlEl = document.getElementById("access-link-url");
+    if (!panel || !urlEl) return;
+    if (!resumeLink) {
+      panel.classList.add("hidden");
+      urlEl.textContent = "";
+      return;
+    }
+    urlEl.textContent = resumeLink;
+    panel.classList.remove("hidden");
+    setAccessLinkStatus("", false);
+  }
+
+  function setAccessLinkStatus(message, isError) {
+    const status = document.getElementById("access-link-status");
+    if (!status) return;
+    if (!message) {
+      status.textContent = "";
+      status.classList.add("hidden");
+      return;
+    }
+    status.textContent = message;
+    status.className = `m-0 mt-2 text-sm ${isError ? "text-red-700" : "text-emerald-700"}`;
+    status.classList.remove("hidden");
+  }
+
+  async function copyAccessLink() {
+    const urlEl = document.getElementById("access-link-url");
+    const link = urlEl?.textContent || "";
+    if (!link) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "absolute";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setAccessLinkStatus("Link copied to clipboard.", false);
+    } catch {
+      setAccessLinkStatus("Could not copy. Please copy the link manually.", true);
+    }
+  }
+
+  async function resendAccessLink() {
+    const tokenValue = window.__token__ || token || "";
+    if (!tokenValue) {
+      setAccessLinkStatus("No active session. Please refresh the page.", true);
+      return;
+    }
+    const btn = document.getElementById("resend-access-link-btn");
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = true;
+      btn.dataset.originalLabel = btn.dataset.originalLabel || btn.textContent;
+      btn.textContent = "Sending...";
+    }
+    setAccessLinkStatus("Sending the link to your email...", false);
+    try {
+      const res = await fetch("/api/professional/resend-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: tokenValue }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setAccessLinkStatus("Sent! Check your inbox (and spam folder).", false);
+      } else {
+        setAccessLinkStatus(data.error || "Could not send the email. Please try again.", true);
+      }
+    } catch {
+      setAccessLinkStatus("Network error. Please try again.", true);
+    } finally {
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalLabel || "Email me this link";
+      }
+    }
   }
 
   function extractTokenFromResumeLink(resumeLink) {
@@ -703,10 +849,51 @@ const token = Astro.url.searchParams.get("token");
 
   document.getElementById("add-experience-btn").addEventListener("click", () => addExperienceRow());
 
+  document.getElementById("copy-access-link-btn")?.addEventListener("click", copyAccessLink);
+  document.getElementById("resend-access-link-btn")?.addEventListener("click", resendAccessLink);
+
   let saveQueue = Promise.resolve();
   function queueFormSave() {
     saveQueue = saveQueue.then(() => saveFormData()).catch(() => {});
     return saveQueue;
+  }
+
+  // Tracks upload operations in flight so we can disable every upload/delete
+  // button while any upload is running. Prevents users from firing concurrent
+  // uploads (different categories) which would race on the server-side doc
+  // count read-modify-write.
+  const uploadsInFlight = new Set();
+  function refreshUploadLockUi() {
+    const locked = uploadsInFlight.size > 0;
+    document.querySelectorAll(".upload-btn").forEach(btn => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const docId = btn.dataset.doc;
+      // Don't re-enable a button that is showing "Uploading... N%" — its
+      // own docId is in uploadsInFlight and will be cleared on completion.
+      if (locked && docId && !uploadsInFlight.has(docId)) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+      } else if (!locked) {
+        // Only restore buttons whose docId isn't currently uploading
+        // (those are managed by setUploadButtonState/resetUploadButtonState).
+        if (docId && !uploadsInFlight.has(docId)) {
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.classList.remove("opacity-60", "cursor-not-allowed");
+        }
+      }
+    });
+    document.querySelectorAll(".delete-file-btn").forEach(btn => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      if (locked) {
+        btn.disabled = true;
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+      } else if (btn.textContent !== "...") {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60", "cursor-not-allowed");
+      }
+    });
   }
 
   function setContinueButtonLoading(btn, isLoading) {
@@ -947,6 +1134,7 @@ const token = Astro.url.searchParams.get("token");
 
     setupUploadHandlers();
     setupDeleteHandlers();
+    refreshUploadLockUi();
   }
 
   function setupUploadHandlers() {
@@ -1024,6 +1212,14 @@ const token = Astro.url.searchParams.get("token");
         const docId = fileInput.id.replace("file-", "");
         const file = fileInput.files?.[0];
         if (!file) return;
+        if (uploadsInFlight.size > 0) {
+          // Another upload is in flight; reject the new selection and
+          // remind the user to wait.
+          setStatusMessage("Please wait for the current upload to finish before adding another file.", true);
+          alert("Please wait for the current upload to finish before adding another file.");
+          fileInput.value = "";
+          return;
+        }
         if (file.size > MAX_UPLOAD_SIZE_BYTES) {
           const message = `File size exceeds ${MAX_UPLOAD_SIZE_MB}MB limit.`;
           setStatusMessage(message, true);
@@ -1041,6 +1237,8 @@ const token = Astro.url.searchParams.get("token");
           return;
         }
 
+        uploadsInFlight.add(docId);
+        refreshUploadLockUi();
         setUploadButtonState(docId, "Uploading... 0%", true);
         setStatusMessage(`Uploading ${file.name}... 0%`, false);
 
@@ -1082,7 +1280,9 @@ const token = Astro.url.searchParams.get("token");
           setStatusMessage(message, true);
           alert(message);
         } finally {
+          uploadsInFlight.delete(docId);
           resetUploadButtonState(docId);
+          refreshUploadLockUi();
           fileInput.value = "";
         }
       });
@@ -1261,6 +1461,7 @@ const token = Astro.url.searchParams.get("token");
         if (resumeToken) {
           window.__token__ = resumeToken;
           syncTokenToUrl(resumeToken);
+          showAccessLinkPanel(buildResumeLinkFromToken(resumeToken));
         }
 
         document.getElementById("firstName").value = firstName;
@@ -1315,6 +1516,7 @@ const token = Astro.url.searchParams.get("token");
           return;
         }
         setResumeLinkWarning("");
+        showAccessLinkPanel(buildResumeLinkFromToken(token));
 
         window.__token__ = token;
         if (data.applicantId) {
