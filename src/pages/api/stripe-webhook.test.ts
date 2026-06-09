@@ -152,7 +152,7 @@ function makeReq(body: string, signature: string) {
       headers: new Map([["stripe-signature", signature]]),
       text: vi.fn().mockResolvedValue(body),
     },
-  } as unknown as Parameters<import("../../pages/api/stripe-webhook").POST>[0];
+  } as unknown as Parameters<(typeof import("../../pages/api/stripe-webhook").POST)>[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ describe("stripe-webhook", () => {
           headers: new Map(),
           text: vi.fn().mockResolvedValue("{}"),
         },
-      } as unknown as Parameters<POST>[0];
+      } as unknown as Parameters<typeof POST>[0];
       const res = await POST(req);
       expect(res.status).toBe(400);
     });

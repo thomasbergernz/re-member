@@ -160,10 +160,11 @@ export async function createAssociateApplicationReviewDoc(
   const docTitle = `Associate Application — ${application.firstName} ${application.lastName} (${application.email})`;
 
   let docId: string | undefined;
+  let applicantFolderId = "";
 
   if (rootFolderId) {
     const amFolderId = await ensureDriveFolderExists(drive, rootFolderId, "AM Applications");
-    const applicantFolderId = await ensureDriveFolderExists(
+    applicantFolderId = await ensureDriveFolderExists(
       drive,
       amFolderId,
       `${application.firstName}_${application.lastName}`.replace(/[^a-zA-Z0-9]/g, "_")
@@ -199,7 +200,7 @@ export async function createAssociateApplicationReviewDoc(
     applicationId: application.applicationId,
     docId,
     docUrl,
-    folderId: folderId || null,
+    folderId: applicantFolderId || null,
   });
 
   return docUrl;
@@ -429,11 +430,12 @@ export async function createApplicationReviewDoc(
   const docTitle = `Professional Application — ${applicant.firstName} ${applicant.lastName} (${applicant.email})`;
 
   let docId: string | undefined;
+  let applicantFolderId = "";
 
   if (rootFolderId) {
     // Ensure PM Applications subfolder exists, then create doc inside it
     const pmFolderId = await ensureDriveFolderExists(drive, rootFolderId, "PM Applications");
-    const applicantFolderId = await ensureDriveFolderExists(
+    applicantFolderId = await ensureDriveFolderExists(
       drive,
       pmFolderId,
       `${applicant.firstName}_${applicant.lastName}`.replace(/[^a-zA-Z0-9]/g, "_")
@@ -472,7 +474,7 @@ export async function createApplicationReviewDoc(
     applicantId: applicant.id,
     docId,
     docUrl,
-    folderId: folderId || null,
+    folderId: applicantFolderId || null,
     driveFilesCount: driveFiles.length,
   });
 

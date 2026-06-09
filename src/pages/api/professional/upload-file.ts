@@ -111,21 +111,25 @@ const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 // (getDriveFileCounts -> addDriveFile -> updateDocCount) cannot race and
 // produce a stale doc count. Mirrors the applicantSaveQueues pattern in
 // apply.ts.
-const applicantUploadQueues = new Map<string, Promise<void>>();
-async function queueApplicantUpload(
+const applicantUploadQueues = new Map<string, Promise<unknown>>();
+async function queueApplicantUpload<T>(
   applicantId: string,
-  operation: () => Promise<void>
-): Promise<void> {
+  operation: () => Promise<T>
+): Promise<T> {
   const previous = applicantUploadQueues.get(applicantId) ?? Promise.resolve();
-  const current = previous
+  const current: Promise<T> = previous
     .catch(() => {})
-    .then(operation)
-    .finally(() => {
-      if (applicantUploadQueues.get(applicantId) === current) {
-        applicantUploadQueues.delete(applicantId);
-      }
-    });
-  applicantUploadQueues.set(applicantId, current);
+    .then(() => operation());
+  const tracked: Promise<unknown> = current.then(
+    () => undefined,
+    () => undefined,
+  );
+  tracked.finally(() => {
+    if (applicantUploadQueues.get(applicantId) === tracked) {
+      applicantUploadQueues.delete(applicantId);
+    }
+  });
+  applicantUploadQueues.set(applicantId, tracked);
   return current;
 }
 
