@@ -14,4 +14,6 @@ coverage/
 # Local runtime + secrets in .run/
 .mcp.json
 .run/gmail-oauth-env.sh
+.run/health-alert-worker/.wrangler/
+.run/health-alert-worker/dev/
 

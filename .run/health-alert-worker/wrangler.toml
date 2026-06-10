@@ -1,0 +1,6 @@
+name = "eldaa-health-alert"
+main = "worker.mjs"
+compatibility_date = "2024-09-23"
+
+# Secrets (SLACK_WEBHOOK_URL, CHECK_TOKEN) are set via `wrangler secret put`,
+# not committed here.

@@ -1,0 +1,24 @@
+name: Health check
+
+# Triggers the Cloudflare Worker (eldaa-health-alert) every 5 minutes.
+# The Worker probes /api/health on both Fly apps and posts to Slack on failure.
+# Worker URL is public; the CHECK_TOKEN is verified by the Worker.
+
+on:
+  schedule:
+    # Every 5 min. GitHub may delay cron by a few min — that's fine.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    # Manual trigger for testing.
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger eldaa-health-alert Worker
+        run: |
+          curl -sS -X POST \
+            "https://eldaa-health-alert.thomas-b02.workers.dev/check" \
+            -H "Authorization: Bearer ${{ secrets.ELDAA_HEALTH_CHECK_TOKEN }}" \
+            -w "\n---\nHTTP %{http_code}\n"
