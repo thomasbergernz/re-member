@@ -1,6 +1,27 @@
 # Gmail OAuth token rotation and Fly secret rollout
 Use this when resume-link emails fail, sender identity is wrong, or you need to rotate Gmail OAuth credentials.
-Use GCP project `stripe-billing-491503` for both staging and production OAuth credentials.
+
+## Which GCP project owns the OAuth client
+
+The Gmail OAuth client lives in GCP project **`mystical-runway-496019-r8`** (project number `531470041058`). The other project in this repo, `stripe-billing-491503`, is for Stripe billing only — Sheets/Drive writes go through a service account there, not OAuth. Don't get them mixed up.
+
+The client secret file you want is:
+
+```
+~/Downloads/client_secret_531470041058-do9qba7t3c2osmrrri5i0dlhe9nk819u.apps.googleusercontent.com.json
+```
+
+If that's missing, download a fresh one from GCP console → project `mystical-runway-496019-r8` → APIs & Services → Credentials → the "Desktop" OAuth 2.0 Client ID. Drop it anywhere on disk and point `CLIENT_JSON` at it.
+
+## Why this runbook exists
+
+OAuth refresh tokens for Google don't expire on a schedule — they last until revoked. Common revocation triggers:
+- Token unused past Google's purge window (rumored ~6 months of inactivity)
+- `no-reply@eldaa.org.nz` password or MFA change
+- Someone removes the app from that account's Authorized Apps
+- The OAuth client or GCP project is deleted
+
+Detection is automated: `src/pages/api/health.ts` exercises the refresh token on every call, and the `eldaa-health-alert` Cloudflare Worker pings it on a cron and posts to Slack on failure. If Slack pings you about `gmail: disconnected`, run this runbook.
 
 ## 1) Load OAuth desktop client values
 ```sh
@@ -16,6 +37,18 @@ print(json.load(open(os.environ["CLIENT_JSON"]))["installed"]["client_secret"])
 PY
 )
 ```
+
+## 1a) (Optional) Read the currently-deployed values from Fly
+
+If you don't have the client secret file locally, you can read the live values from a started Fly machine:
+
+```sh
+# Start a machine if both are stopped
+fly machine start <id> -a eldaa
+fly ssh console -a eldaa -C 'sh -c "printenv | grep -E GMAIL"'
+```
+
+`fly secrets list` only shows truncated digests, not values — `fly ssh console` on a started machine is the only CLI way to get the actual env.
 
 ## 2) Generate consent URL and authorize `no-reply@eldaa.org.nz`
 ```sh
@@ -65,6 +98,8 @@ fly secrets set -a eldaa \
 ```sh
 fly secrets list -a eldaa | grep GMAIL_
 fly logs -a eldaa --no-tail | grep -E "resume_email_(sent|failed)|Precondition check failed"
+curl -sS https://eldaa.fly.dev/api/health | python3 -m json.tool
+# expect: {"status":"ok","stripe":"connected","gmail":"connected"}
 ```
 Then run one `/professional/apply` test:
 - URL includes `?token=...`
@@ -80,6 +115,8 @@ fly secrets set -a eldaa-production \
   GMAIL_SENDER_EMAIL=no-reply@eldaa.org.nz
 fly secrets list -a eldaa-production | grep GMAIL_
 fly logs -a eldaa-production --no-tail | grep -E "resume_email_(sent|failed)|Precondition check failed"
+curl -sS https://subscribe.eldaa.org.nz/api/health | python3 -m json.tool
+# expect: {"status":"ok","stripe":"connected","gmail":"connected"}
 ```
 
 ## 7) Cleanup local shell secrets
