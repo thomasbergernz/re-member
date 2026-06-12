@@ -3,8 +3,15 @@
 // Pings the production /api/health endpoint, posts to Slack on failure.
 
 const TARGETS = [
-  { name: "production", url: "https://subscribe.eldaa.org.nz/api/health" },
+  { name: "production", url: "https://subscribe.eldaa.org.nz/api/health", baseUrl: "https://subscribe.eldaa.org.nz/" },
 ];
+
+// Timeouts: cold starts on Fly can exceed 10s (stopped machine + Node import
+// graph + Vite dev server in dev). Use a longer window for the warmup ping
+// that wakes the machine, then a tighter window for the actual health probe
+// (warm machine should respond in <2s).
+const WARMUP_TIMEOUT_MS = 30_000;
+const HEALTH_TIMEOUT_MS = 10_000;
 
 function isAuthorized(request, env) {
   const header = request.headers.get("Authorization") || "";
@@ -14,9 +21,37 @@ function isAuthorized(request, env) {
 
 async function check(target) {
   const start = Date.now();
+
+  // Stage 1 — warmup. Ping the base URL with a generous timeout so a stopped
+  // Fly machine has time to cold-start. Accept any HTTP response (even 5xx):
+  // we only care that the machine is alive. /api/health is the source of
+  // truth for subsystem health.
+  try {
+    const warmup = await fetch(target.baseUrl, {
+      signal: AbortSignal.timeout(WARMUP_TIMEOUT_MS),
+      headers: { "User-Agent": "eldaa-health-alert/1.0 (warmup)" },
+    });
+    // Drain body so the connection is released back to the pool.
+    try { await warmup.text(); } catch {}
+  } catch (err) {
+    // Warmup didn't return within WARMUP_TIMEOUT_MS — treat the machine as
+    // unreachable. Don't bother with /api/health; that would just time out
+    // the same way.
+    return {
+      name: target.name,
+      url: target.url,
+      ok: false,
+      httpStatus: 0,
+      body: null,
+      latencyMs: Date.now() - start,
+      error: `warmup_timeout: ${String(err && err.message ? err.message : err)}`,
+    };
+  }
+
+  // Stage 2 — health probe. Machine is warm; expect <2s response.
   try {
     const res = await fetch(target.url, {
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
       headers: { "User-Agent": "eldaa-health-alert/1.0" },
     });
     const body = await res.json();
