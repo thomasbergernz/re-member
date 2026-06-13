@@ -91,6 +91,35 @@ describe("sendEmail", () => {
     expect(call).not.toHaveProperty("h:Reply-To");
   });
 
+  it("does not prefix the subject in production-like env (no STAGING_PREFIX)", async () => {
+    delete process.env.STAGING_PREFIX;
+    await sendEmail(
+      { to: "a@b.com", subject: "Hello", body: "World" },
+      { template: "resume_link" },
+    );
+    expect(mockMessagesCreate.mock.calls[0][1].subject).toBe("Hello");
+    expect(mockAppendEmailLog.mock.calls[0][0].subject).toBe("Hello");
+  });
+
+  it("prefixes the subject with [TESTING] when STAGING_PREFIX is set", async () => {
+    process.env.STAGING_PREFIX = "testing-";
+    await sendEmail(
+      { to: "a@b.com", subject: "Hello", body: "World" },
+      { template: "resume_link" },
+    );
+    expect(mockMessagesCreate.mock.calls[0][1].subject).toBe("[TESTING] Hello");
+    expect(mockAppendEmailLog.mock.calls[0][0].subject).toBe("[TESTING] Hello");
+  });
+
+  it("treats an empty STAGING_PREFIX as production (no prefix)", async () => {
+    process.env.STAGING_PREFIX = "   ";
+    await sendEmail(
+      { to: "a@b.com", subject: "Hi", body: "B" },
+      { template: "resume_link" },
+    );
+    expect(mockMessagesCreate.mock.calls[0][1].subject).toBe("Hi");
+  });
+
   it("logs success to the email audit sheet", async () => {
     await sendEmail(
       { to: "a@b.com", subject: "Hi", body: "Body" },
