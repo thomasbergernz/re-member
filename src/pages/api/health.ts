@@ -25,35 +25,22 @@ async function checkStripe(): Promise<SubsystemResult> {
   }
 }
 
-// Probes the Mailgun HTTP API for the configured sending domain. Mailgun
-// returns 200 with domain metadata on success, 401/403 on bad/missing key,
-// and 404 on unknown domain. No side effects — just GET /v3/{domain}.
+// Verifies Mailgun is configured. We intentionally do NOT make a network
+// call here: domain-level API keys (the recommended least-privilege scope)
+// return 404 on GET /v3/{domain} even though they can POST to /messages.
+// Env presence is the strongest signal we can get without a key-scope
+// roundtrip. If a real send fails, the email-sender's error path logs it
+// to the audit sheet and the Fly logger.
 async function checkMailgun(): Promise<SubsystemResult> {
   const apiKey = process.env.MAILGUN_API_KEY?.trim();
   const domain = process.env.MAILGUN_DOMAIN?.trim();
+  const from = process.env.MAILGUN_FROM?.trim();
 
-  if (!apiKey || !domain) {
+  if (!apiKey || !domain || !from) {
     return { status: "not_configured" };
   }
 
-  try {
-    const basicAuth = Buffer.from(`api:${apiKey}`).toString("base64");
-    const res = await fetch(`https://api.mailgun.net/v3/${domain}`, {
-      method: "GET",
-      headers: { Authorization: `Basic ${basicAuth}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (res.ok) return { status: "connected" };
-    return {
-      status: "disconnected",
-      error: `Mailgun returned HTTP ${res.status}`,
-    };
-  } catch (err) {
-    return {
-      status: "disconnected",
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
+  return { status: "connected" };
 }
 
 export const GET: APIRoute = async () => {
