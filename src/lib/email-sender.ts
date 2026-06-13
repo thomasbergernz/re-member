@@ -9,6 +9,17 @@ interface EmailParams {
   replyTo?: string;
 }
 
+// In staging we prefix every outgoing subject with "[TESTING] " so the
+// recipient (and any inbox-searching user) can tell at a glance that the
+// message came from a non-production env. The same STAGING_PREFIX env var
+// that already drives `getStagingPrefix()` in src/lib/staging.ts for Drive
+// folder names also gates this prefix — one switch to flip all staging
+// signals on or off. Production + local dev leave STAGING_PREFIX unset, so
+// the prefix is the empty string and subjects are sent verbatim.
+function getEmailSubjectPrefix(): string {
+  return process.env.STAGING_PREFIX?.trim() ? "[TESTING] " : "";
+}
+
 // Mailgun HTTP API via the official JS SDK. Replaces the previous Gmail
 // OAuth path — Gmail's Workspace Cloud session-control policy reauthed the
 // refresh token every ~24h, surfacing as `invalid_rapt` and degrading
@@ -63,19 +74,20 @@ export async function sendEmail(
   const { domain, from } = getMailgunConfig();
   const mg = getMailgunClient();
   const timestamp = new Date().toISOString();
+  const subject = `${getEmailSubjectPrefix()}${params.subject}`;
 
   try {
     await mg.messages.create(domain, {
       from,
       to: [params.to],
-      subject: params.subject,
+      subject,
       text: params.body,
       ...(params.replyTo ? { "h:Reply-To": params.replyTo } : {}),
     });
     await appendEmailLog({
       timestamp,
       to: params.to,
-      subject: params.subject,
+      subject,
       template: meta?.template ?? "unknown",
       applicantId: meta?.applicantId,
       result: "sent",
@@ -84,7 +96,7 @@ export async function sendEmail(
     await appendEmailLog({
       timestamp,
       to: params.to,
-      subject: params.subject,
+      subject,
       template: meta?.template ?? "unknown",
       applicantId: meta?.applicantId,
       result: "failed",
