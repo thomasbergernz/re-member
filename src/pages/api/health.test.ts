@@ -1,21 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock googleapis — capture the OAuth2 constructor and refreshAccessToken calls.
-// Use `function` (not arrow) so `new google.auth.OAuth2(...)` works.
-const mockSetCredentials = vi.fn();
-const mockRefreshAccessToken = vi.fn();
-const OAuth2Ctor = vi.fn().mockImplementation(function (this: any) {
-  this.setCredentials = mockSetCredentials;
-  this.refreshAccessToken = mockRefreshAccessToken;
-});
-
-vi.mock("googleapis", () => ({
-  google: {
-    auth: {
-      OAuth2: OAuth2Ctor,
-    },
-  },
-}));
+// Mock global fetch for the Mailgun probe. The health endpoint does
+// fetch("https://api.mailgun.net/v3/{domain}", { ... }) with Basic auth.
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
 
 // Mock Stripe — control products.list behaviour per test.
 const mockProductsList = vi.fn();
@@ -43,45 +31,35 @@ async function getHandler() {
 describe("/api/health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Re-apply mockImplementation after clearAllMocks wipes it.
-    OAuth2Ctor.mockImplementation(function (this: any) {
-      this.setCredentials = mockSetCredentials;
-      this.refreshAccessToken = mockRefreshAccessToken;
-    });
-    mockRefreshAccessToken.mockResolvedValue({
-      credentials: { access_token: "ya29.fake" },
-    });
     mockProductsList.mockResolvedValue({ data: [] });
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
   });
 
   afterEach(() => {
     delete process.env.STRIPE_SECRET_KEY;
-    delete process.env.GMAIL_OAUTH_CLIENT_ID;
-    delete process.env.GMAIL_OAUTH_CLIENT_SECRET;
-    delete process.env.GMAIL_OAUTH_REFRESH_TOKEN;
+    delete process.env.MAILGUN_API_KEY;
+    delete process.env.MAILGUN_DOMAIN;
   });
 
   describe("happy path", () => {
     it("returns 200 with both subsystems connected", async () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "rt";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
 
       const GET = await getHandler();
       const res = await GET({} as never);
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body).toEqual({ status: "ok", stripe: "connected", gmail: "connected" });
+      expect(body).toEqual({ status: "ok", stripe: "connected", email: "connected" });
     });
   });
 
   describe("Stripe", () => {
     it("reports not_configured as degraded when STRIPE_SECRET_KEY is absent", async () => {
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "rt";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -91,14 +69,13 @@ describe("/api/health", () => {
       const body = await res.json();
       expect(body.status).toBe("degraded");
       expect(body.stripe).toBe("not_configured");
-      expect(body.gmail).toBe("connected");
+      expect(body.email).toBe("connected");
     });
 
     it("reports disconnected and degraded (still 200) when products.list throws", async () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_bad";
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "rt";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
 
       mockProductsList.mockRejectedValueOnce(new Error("Invalid API Key"));
 
@@ -109,15 +86,15 @@ describe("/api/health", () => {
       const body = await res.json();
       expect(body.status).toBe("degraded");
       expect(body.stripe).toBe("disconnected");
-      expect(body.gmail).toBe("connected");
+      expect(body.email).toBe("connected");
       expect(body.errors.stripe).toContain("Invalid API Key");
     });
   });
 
-  describe("Gmail OAuth", () => {
-    it("reports not_configured as degraded when any GMAIL_OAUTH_* env is missing", async () => {
+  describe("Mailgun", () => {
+    it("reports not_configured as degraded when MAILGUN_API_KEY is missing", async () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
-      // GMAIL_OAUTH_* envs deliberately omitted.
+      // MAILGUN_API_KEY / MAILGUN_DOMAIN deliberately omitted.
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -125,57 +102,77 @@ describe("/api/health", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.status).toBe("degraded");
-      expect(body.gmail).toBe("not_configured");
-      expect(OAuth2Ctor).not.toHaveBeenCalled();
+      expect(body.email).toBe("not_configured");
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("returns connected when refreshAccessToken resolves", async () => {
+    it("returns connected when Mailgun returns 200", async () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "rt";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
 
       const GET = await getHandler();
       const res = await GET({} as never);
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.gmail).toBe("connected");
-      expect(OAuth2Ctor).toHaveBeenCalledWith("cid", "csec");
-      expect(mockSetCredentials).toHaveBeenCalledWith({ refresh_token: "rt" });
-      expect(mockRefreshAccessToken).toHaveBeenCalledOnce();
-    });
-
-    it("reports disconnected and degraded (still 200) on invalid_grant (dead refresh token)", async () => {
-      process.env.STRIPE_SECRET_KEY = "sk_test_ok";
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "dead";
-
-      mockRefreshAccessToken.mockRejectedValueOnce(
-        new Error('{"error":"invalid_grant","error_subtype":"invalid_rapt"}'),
+      expect(body.email).toBe("connected");
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.mailgun.net/v3/mg.eldaa.org.nz",
+        expect.objectContaining({
+          method: "GET",
+          headers: expect.objectContaining({
+            Authorization: expect.stringMatching(/^Basic /),
+          }),
+        }),
       );
+    });
+
+    it("reports disconnected and degraded (still 200) on 401 from Mailgun", async () => {
+      process.env.STRIPE_SECRET_KEY = "sk_test_ok";
+      process.env.MAILGUN_API_KEY = "key-bad";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
+
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
 
       const GET = await getHandler();
       const res = await GET({} as never);
 
-      // Dead token must NOT 503 — that would take the whole Fly app offline.
+      // Dead credential must NOT 503 — that would take the whole Fly app offline.
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.status).toBe("degraded");
-      expect(body.gmail).toBe("disconnected");
+      expect(body.email).toBe("disconnected");
       expect(body.stripe).toBe("connected");
-      expect(body.errors.gmail).toContain("invalid_grant");
+      expect(body.errors.email).toContain("401");
+    });
+
+    it("reports disconnected and degraded (still 200) when fetch throws", async () => {
+      process.env.STRIPE_SECRET_KEY = "sk_test_ok";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
+
+      mockFetch.mockRejectedValueOnce(new Error("network unreachable"));
+
+      const GET = await getHandler();
+      const res = await GET({} as never);
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.status).toBe("degraded");
+      expect(body.email).toBe("disconnected");
+      expect(body.errors.email).toContain("network unreachable");
     });
 
     it("reports both subsystems degraded (still 200)", async () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_bad";
-      process.env.GMAIL_OAUTH_CLIENT_ID = "cid";
-      process.env.GMAIL_OAUTH_CLIENT_SECRET = "csec";
-      process.env.GMAIL_OAUTH_REFRESH_TOKEN = "rt";
+      process.env.MAILGUN_API_KEY = "key-test";
+      process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
 
       mockProductsList.mockRejectedValueOnce(new Error("Stripe down"));
-      mockRefreshAccessToken.mockRejectedValueOnce(new Error("Gmail down"));
+      mockFetch.mockRejectedValueOnce(new Error("Mailgun down"));
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -184,9 +181,9 @@ describe("/api/health", () => {
       const body = await res.json();
       expect(body.status).toBe("degraded");
       expect(body.stripe).toBe("disconnected");
-      expect(body.gmail).toBe("disconnected");
+      expect(body.email).toBe("disconnected");
       expect(body.errors.stripe).toContain("Stripe down");
-      expect(body.errors.gmail).toContain("Gmail down");
+      expect(body.errors.email).toContain("Mailgun down");
     });
   });
 });

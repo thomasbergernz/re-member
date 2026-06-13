@@ -7,6 +7,9 @@ interface ImportMetaEnv {
   readonly STRIPE_PRICE_PROFESSIONAL: string;
   readonly PUBLIC_SITE_URL?: string;
   readonly GOOGLE_WORKSPACE_IMPERSONATE_USER?: string;
+  readonly MAILGUN_API_KEY?: string;
+  readonly MAILGUN_DOMAIN?: string;
+  readonly MAILGUN_FROM?: string;
 }
 
 interface ImportMeta {

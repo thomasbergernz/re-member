@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import Stripe from "stripe";
-import { google } from "googleapis";
 import { logger } from "../../lib/logger";
 
 type SubsystemStatus = "connected" | "disconnected" | "not_configured";
@@ -26,27 +25,29 @@ async function checkStripe(): Promise<SubsystemResult> {
   }
 }
 
-// Probes the Gmail OAuth refresh token by performing an access-token refresh.
-// Does NOT call the Gmail API — no side effects, no Sent-folder entries.
-// Fails fast on invalid_grant / invalid_rapt / 401; surfaced as gmail:
-// "disconnected" and an overall "degraded" status in the GET response body.
-async function checkGmail(): Promise<SubsystemResult> {
-  const clientId = process.env.GMAIL_OAUTH_CLIENT_ID?.trim();
-  const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET?.trim();
-  const refreshToken = process.env.GMAIL_OAUTH_REFRESH_TOKEN?.trim();
+// Probes the Mailgun HTTP API for the configured sending domain. Mailgun
+// returns 200 with domain metadata on success, 401/403 on bad/missing key,
+// and 404 on unknown domain. No side effects — just GET /v3/{domain}.
+async function checkMailgun(): Promise<SubsystemResult> {
+  const apiKey = process.env.MAILGUN_API_KEY?.trim();
+  const domain = process.env.MAILGUN_DOMAIN?.trim();
 
-  if (!clientId || !clientSecret || !refreshToken) {
+  if (!apiKey || !domain) {
     return { status: "not_configured" };
   }
 
   try {
-    const oauth = new google.auth.OAuth2(clientId, clientSecret);
-    oauth.setCredentials({ refresh_token: refreshToken });
-    // refreshAccessToken round-trips to Google's token endpoint. A dead
-    // refresh token (invalid_grant / invalid_rapt) throws within ~300ms.
-    // This call does not revoke or rotate the stored refresh token.
-    await oauth.refreshAccessToken();
-    return { status: "connected" };
+    const basicAuth = Buffer.from(`api:${apiKey}`).toString("base64");
+    const res = await fetch(`https://api.mailgun.net/v3/${domain}`, {
+      method: "GET",
+      headers: { Authorization: `Basic ${basicAuth}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) return { status: "connected" };
+    return {
+      status: "disconnected",
+      error: `Mailgun returned HTTP ${res.status}`,
+    };
   } catch (err) {
     return {
       status: "disconnected",
@@ -56,7 +57,7 @@ async function checkGmail(): Promise<SubsystemResult> {
 }
 
 export const GET: APIRoute = async () => {
-  const [stripe, gmail] = await Promise.all([checkStripe(), checkGmail()]);
+  const [stripe, email] = await Promise.all([checkStripe(), checkMailgun()]);
 
   if (stripe.status === "disconnected") {
     logger.error("health.stripe_check_failed", { error: stripe.error });
@@ -64,26 +65,28 @@ export const GET: APIRoute = async () => {
   if (stripe.status === "not_configured") {
     logger.warn("health.check", { reason: "STRIPE_SECRET_KEY not configured" });
   }
-  if (gmail.status === "disconnected") {
-    logger.error("health.gmail_check_failed", { error: gmail.error });
+  if (email.status === "disconnected") {
+    logger.error("health.mailgun_check_failed", { error: email.error });
   }
-  if (gmail.status === "not_configured") {
-    logger.warn("health.check", { reason: "GMAIL_OAUTH_* not configured" });
+  if (email.status === "not_configured") {
+    logger.warn("health.check", {
+      reason: "MAILGUN_API_KEY or MAILGUN_DOMAIN not configured",
+    });
   }
 
   // A subsystem is healthy only when fully connected. "not_configured" counts
   // as unhealthy: in deployed envs these credentials are mandatory, and a
-  // silently missing token is exactly the failure this endpoint must catch.
-  const healthy = stripe.status === "connected" && gmail.status === "connected";
+  // silently missing key is exactly the failure this endpoint must catch.
+  const healthy = stripe.status === "connected" && email.status === "connected";
   const body: Record<string, unknown> = {
     status: healthy ? "ok" : "degraded",
     stripe: stripe.status,
-    gmail: gmail.status,
+    email: email.status,
   };
-  if (stripe.error || gmail.error) {
+  if (stripe.error || email.error) {
     body.errors = {
       ...(stripe.error ? { stripe: stripe.error } : {}),
-      ...(gmail.error ? { gmail: gmail.error } : {}),
+      ...(email.error ? { email: email.error } : {}),
     };
   }
 

@@ -84,7 +84,7 @@ function summarizeResult(r) {
     httpStatus: r.httpStatus,
     latencyMs: r.latencyMs,
     stripe: r.body && r.body.stripe,
-    gmail: r.body && r.body.gmail,
+    email: r.body && r.body.email,
     status: r.body && r.body.status,
     error: r.error,
   };

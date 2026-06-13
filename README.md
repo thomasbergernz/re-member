@@ -22,17 +22,15 @@ Astro SSR app with:
 - First-time subscribers: prorated first-term charge based on weeks remaining until 1 July.
 - Existing subscribers: full annual amount (no proration).
 - Professional checkout redirects to `eldaa.org.nz/professional-membership` after payment.
-- Professional application resume emails are sent via Gmail API (`/api/professional/apply`).
+- Professional application resume emails are sent via Mailgun (`/api/professional/apply`).
 
-## Transactional email setup (Gmail API)
+## Transactional email setup (Mailgun)
 - Required env vars:
-  - `GMAIL_SENDER_EMAIL`
-  - `GMAIL_OAUTH_CLIENT_ID`
-  - `GMAIL_OAUTH_CLIENT_SECRET`
-  - `GMAIL_OAUTH_REFRESH_TOKEN`
-- GCP project for Google integrations (staging + production): `stripe-billing-491503`
-- Local fallback: if OAuth env vars are not set, the app can use Application Default Credentials (ADC) with `gmail.send` scope.
-- Ops runbook: `docs/runbooks/gmail-oauth-token-rotation.md`
+  - `MAILGUN_API_KEY` (private API key, starts with `key-`)
+  - `MAILGUN_DOMAIN` (verified sending domain, e.g. `mg.eldaa.org.nz`)
+  - `MAILGUN_FROM` (full From header, e.g. `ELDAA <no-reply@mg.eldaa.org.nz>`)
+- SDK: `mailgun.js` v11 + `form-data` v4 (HTTP API, no SMTP).
+- Ops runbook: `docs/runbooks/mailgun-setup.md`
 
 ## Stripe webhook endpoints
 - Staging (`eldaa`): `https://eldaa.fly.dev/api/stripe-webhook`

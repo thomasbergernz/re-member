@@ -1,4 +1,5 @@
-import { google } from "googleapis";
+import FormData from "form-data";
+import Mailgun from "mailgun.js";
 import { appendEmailLog } from "./google-sheets";
 
 interface EmailParams {
@@ -7,75 +8,45 @@ interface EmailParams {
   body: string;
   replyTo?: string;
 }
-const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
-function getSenderEmail(): string {
-  const sender =
-    process.env.GMAIL_SENDER_EMAIL?.trim() || process.env.GMAIL_SENDER?.trim();
+// Mailgun HTTP API via the official JS SDK. Replaces the previous Gmail
+// OAuth path — Gmail's Workspace Cloud session-control policy reauthed the
+// refresh token every ~24h, surfacing as `invalid_rapt` and degrading
+// /api/health to "gmail: disconnected" on a recurring cycle.
+//
+// Env contract:
+//   MAILGUN_API_KEY   — Mailgun private API key (starts with "key-")
+//   MAILGUN_DOMAIN    — verified sending domain (e.g. "mg.eldaa.org.nz").
+//                       On a Mailgun sandbox this is the sandbox hostname;
+//                       only verified recipients will receive mail.
+//   MAILGUN_FROM      — full From header value, e.g.
+//                       "ELDAA <no-reply@mg.eldaa.org.nz>"
 
-  if (!sender) {
-    throw new Error("Missing GMAIL_SENDER_EMAIL.");
-  }
+function getMailgunConfig(): {
+  apiKey: string;
+  domain: string;
+  from: string;
+} {
+  const apiKey = process.env.MAILGUN_API_KEY?.trim();
+  const domain = process.env.MAILGUN_DOMAIN?.trim();
+  const from = process.env.MAILGUN_FROM?.trim();
 
-  return sender;
-}
-
-function getOAuthConfig():
-  | { clientId: string; clientSecret: string; refreshToken: string }
-  | null {
-  const clientId =
-    process.env.GMAIL_OAUTH_CLIENT_ID?.trim() ||
-    process.env.GMAIL_CLIENT_ID?.trim();
-  const clientSecret =
-    process.env.GMAIL_OAUTH_CLIENT_SECRET?.trim() ||
-    process.env.GMAIL_CLIENT_SECRET?.trim();
-  const refreshToken =
-    process.env.GMAIL_OAUTH_REFRESH_TOKEN?.trim() ||
-    process.env.GMAIL_REFRESH_TOKEN?.trim();
-
-  const anyConfigured = clientId || clientSecret || refreshToken;
-  if (!anyConfigured) return null;
-
-  if (!clientId || !clientSecret || !refreshToken) {
+  if (!apiKey || !domain || !from) {
     throw new Error(
-      "Incomplete Gmail OAuth config. Set GMAIL_OAUTH_CLIENT_ID, GMAIL_OAUTH_CLIENT_SECRET, and GMAIL_OAUTH_REFRESH_TOKEN."
+      "Missing Mailgun config. Set MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM.",
     );
   }
 
-  return { clientId, clientSecret, refreshToken };
+  return { apiKey, domain, from };
 }
 
-async function getGmailClient() {
-  const oauthConfig = getOAuthConfig();
-
-  if (oauthConfig) {
-    const oauthClient = new google.auth.OAuth2(
-      oauthConfig.clientId,
-      oauthConfig.clientSecret
-    );
-    oauthClient.setCredentials({ refresh_token: oauthConfig.refreshToken });
-    return google.gmail({ version: "v1", auth: oauthClient });
-  }
-
-  const googleAuth = new google.auth.GoogleAuth({
-    scopes: [GMAIL_SEND_SCOPE],
-  });
-  return google.gmail({ version: "v1", auth: googleAuth });
-}
-
-export function createMessage(params: EmailParams, senderEmail: string): string {
-  const headers = [
-    `To: ${params.to}`,
-    `From: ${senderEmail}`,
-    `Subject: ${params.subject}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/plain; charset=UTF-8",
-  ];
-  if (params.replyTo) {
-    headers.push(`Reply-To: ${params.replyTo}`);
-  }
-  headers.push("", params.body);
-  return Buffer.from(headers.join("\r\n")).toString("base64url");
+let _client: ReturnType<Mailgun["client"]> | null = null;
+function getMailgunClient() {
+  if (_client) return _client;
+  const { apiKey } = getMailgunConfig();
+  const mailgun = new Mailgun(FormData);
+  _client = mailgun.client({ username: "api", key: apiKey });
+  return _client;
 }
 
 export type EmailTemplate =
@@ -87,19 +58,19 @@ export type EmailTemplate =
 
 export async function sendEmail(
   params: EmailParams,
-  meta?: { template: EmailTemplate; applicantId?: string }
+  meta?: { template: EmailTemplate; applicantId?: string },
 ): Promise<void> {
-  const senderEmail = getSenderEmail();
-  const gmail = await getGmailClient();
-  const message = createMessage(params, senderEmail);
+  const { domain, from } = getMailgunConfig();
+  const mg = getMailgunClient();
   const timestamp = new Date().toISOString();
 
   try {
-    await gmail.users.messages.send({
-      userId: "me",
-      requestBody: {
-        raw: message,
-      },
+    await mg.messages.create(domain, {
+      from,
+      to: [params.to],
+      subject: params.subject,
+      text: params.body,
+      ...(params.replyTo ? { "h:Reply-To": params.replyTo } : {}),
     });
     await appendEmailLog({
       timestamp,
@@ -126,7 +97,7 @@ export async function sendEmail(
 export async function sendProfessionalConfirmation(
   toEmail: string,
   fullName: string,
-  applicantId?: string
+  applicantId?: string,
 ): Promise<void> {
   const subject = "Your ELDAA Professional Membership Application";
 
@@ -141,7 +112,7 @@ ELDAA Committee`;
 
   await sendEmail(
     { to: toEmail, subject, body },
-    { template: "confirmation", applicantId }
+    { template: "confirmation", applicantId },
   );
 }
 
@@ -149,7 +120,7 @@ export async function sendAssociateConfirmation(
   toEmail: string,
   fullName: string,
   listOnPage: boolean,
-  associateApplicationId?: string
+  associateApplicationId?: string,
 ): Promise<void> {
   const listNote = listOnPage
     ? "You have requested to be listed on our Associate Member list on our website — we will process that shortly."
@@ -182,7 +153,7 @@ ELDAA Committee`;
 
   await sendEmail(
     { to: toEmail, subject, body, replyTo: "membership@eldaa.org.nz" },
-    { template: "associate_confirmation", applicantId: associateApplicationId }
+    { template: "associate_confirmation", applicantId: associateApplicationId },
   );
 }
 
@@ -190,7 +161,7 @@ export async function sendAssociateApplicationNotification(
   toEmail: string,
   associateName: string,
   docUrl: string,
-  associateApplicationId?: string
+  associateApplicationId?: string,
 ): Promise<void> {
   const subject = `New Associate Membership Application — ${associateName}`;
 
@@ -205,7 +176,7 @@ ELDAA`;
 
   await sendEmail(
     { to: toEmail, subject, body },
-    { template: "associate_application_notification", applicantId: associateApplicationId }
+    { template: "associate_application_notification", applicantId: associateApplicationId },
   );
 }
 
@@ -213,7 +184,7 @@ export async function sendProfessionalApplicationNotification(
   toEmail: string,
   applicantName: string,
   docUrl: string,
-  applicantId?: string
+  applicantId?: string,
 ): Promise<void> {
   const subject = `New Professional Membership Application — ${applicantName}`;
 
@@ -228,7 +199,7 @@ ELDAA`;
 
   await sendEmail(
     { to: toEmail, subject, body },
-    { template: "application_notification", applicantId }
+    { template: "application_notification", applicantId },
   );
 }
 
@@ -236,7 +207,7 @@ export async function sendResumeLink(
   toEmail: string,
   fullName: string,
   resumeLink: string,
-  applicantId?: string
+  applicantId?: string,
 ): Promise<void> {
   const subject = "Your ELDAA Professional Membership Application";
 
@@ -256,6 +227,6 @@ ELDAA`;
 
   await sendEmail(
     { to: toEmail, subject, body },
-    { template: "resume_link", applicantId }
+    { template: "resume_link", applicantId },
   );
 }

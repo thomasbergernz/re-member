@@ -1,198 +1,239 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createMessage } from "./email-sender";
 
-// ---------------------------------------------------------------------------
-// createMessage — pure function, no external dependencies
-// ---------------------------------------------------------------------------
+// Hoisted mocks — must come before the module under test imports them.
+const { mockMessagesCreate, mockAppendEmailLog } = vi.hoisted(() => ({
+  mockMessagesCreate: vi.fn(),
+  mockAppendEmailLog: vi.fn(),
+}));
 
-function decodeRaw(raw: string): string {
-  return Buffer.from(raw, "base64url").toString("utf8");
+vi.mock("mailgun.js", () => {
+  class Mailgun {
+    client() {
+      return { messages: { create: mockMessagesCreate } };
+    }
+  }
+  return { default: Mailgun };
+});
+
+vi.mock("./google-sheets", () => ({
+  appendEmailLog: mockAppendEmailLog,
+}));
+
+import {
+  sendEmail,
+  sendProfessionalConfirmation,
+  sendAssociateConfirmation,
+  sendProfessionalApplicationNotification,
+  sendAssociateApplicationNotification,
+  sendResumeLink,
+} from "./email-sender";
+
+const ORIGINAL_ENV = { ...process.env };
+
+function setMailgunEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
+  process.env.MAILGUN_API_KEY = "key-test";
+  process.env.MAILGUN_DOMAIN = "mg.eldaa.org.nz";
+  process.env.MAILGUN_FROM = "ELDAA <no-reply@mg.eldaa.org.nz>";
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
 }
 
-describe("createMessage", () => {
-  it("encodes To, From, Subject and Body headers", () => {
-    const raw = createMessage({ to: "a@b.com", subject: "Test", body: "Hello" }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("To: a@b.com");
-    expect(decoded).toContain("From: no-reply@eldaa.org.nz");
-    expect(decoded).toContain("Subject: Test");
-    expect(decoded).toContain("Hello");
+beforeEach(() => {
+  vi.clearAllMocks();
+  process.env = { ...ORIGINAL_ENV };
+  setMailgunEnv();
+  mockMessagesCreate.mockResolvedValue({ id: "<msg-id@mailgun.org>" });
+  mockAppendEmailLog.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
+});
+
+// ---------------------------------------------------------------------------
+// sendEmail — env, transport, audit log
+// ---------------------------------------------------------------------------
+
+describe("sendEmail", () => {
+  it("posts to Mailgun with from, to, subject, text", async () => {
+    await sendEmail(
+      { to: "a@b.com", subject: "Hello", body: "World" },
+      { template: "resume_link", applicantId: "app-1" },
+    );
+
+    expect(mockMessagesCreate).toHaveBeenCalledWith(
+      "mg.eldaa.org.nz",
+      expect.objectContaining({
+        from: "ELDAA <no-reply@mg.eldaa.org.nz>",
+        to: ["a@b.com"],
+        subject: "Hello",
+        text: "World",
+      }),
+    );
   });
 
-  it("includes Reply-To when provided", () => {
-    const raw = createMessage({ to: "a@b.com", subject: "S", body: "B", replyTo: "help@eldaa.org.nz" }, "n@e.com");
-    expect(decodeRaw(raw)).toContain("Reply-To: help@eldaa.org.nz");
+  it("passes Reply-To via h:Reply-To header when replyTo is set", async () => {
+    await sendEmail(
+      { to: "a@b.com", subject: "S", body: "B", replyTo: "help@eldaa.org.nz" },
+      { template: "resume_link" },
+    );
+
+    const call = mockMessagesCreate.mock.calls[0][1];
+    expect(call["h:Reply-To"]).toBe("help@eldaa.org.nz");
   });
 
-  it("omits Reply-To when not provided", () => {
-    const raw = createMessage({ to: "a@b.com", subject: "S", body: "B" }, "n@e.com");
-    expect(decodeRaw(raw)).not.toContain("Reply-To:");
+  it("omits h:Reply-To when not set", async () => {
+    await sendEmail({ to: "a@b.com", subject: "S", body: "B" }, { template: "resume_link" });
+
+    const call = mockMessagesCreate.mock.calls[0][1];
+    expect(call).not.toHaveProperty("h:Reply-To");
   });
 
-  it("uses CRLF line endings", () => {
-    const raw = createMessage({ to: "a@b.com", subject: "S", body: "B" }, "n@e.com");
-    const decoded = decodeRaw(raw);
-    expect(decoded).not.toContain("\n\n");
-    expect(decoded).toContain("\r\n");
+  it("logs success to the email audit sheet", async () => {
+    await sendEmail(
+      { to: "a@b.com", subject: "Hi", body: "Body" },
+      { template: "resume_link", applicantId: "app-1" },
+    );
+    expect(mockAppendEmailLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "a@b.com",
+        subject: "Hi",
+        template: "resume_link",
+        applicantId: "app-1",
+        result: "sent",
+      }),
+    );
+  });
+
+  it("logs failure to the email audit sheet and rethrows", async () => {
+    mockMessagesCreate.mockRejectedValue(new Error("401 unauthorized"));
+
+    await expect(
+      sendEmail(
+        { to: "a@b.com", subject: "S", body: "B" },
+        { template: "resume_link", applicantId: "app-2" },
+      ),
+    ).rejects.toThrow("401 unauthorized");
+
+    expect(mockAppendEmailLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "a@b.com",
+        template: "resume_link",
+        applicantId: "app-2",
+        result: "failed",
+        error: expect.stringContaining("401 unauthorized"),
+      }),
+    );
+  });
+
+  it("throws when MAILGUN_API_KEY is missing", async () => {
+    delete process.env.MAILGUN_API_KEY;
+    await expect(
+      sendEmail({ to: "a@b.com", subject: "S", body: "B" }, { template: "resume_link" }),
+    ).rejects.toThrow(/MAILGUN_API_KEY/);
+    expect(mockMessagesCreate).not.toHaveBeenCalled();
+  });
+
+  it("throws when MAILGUN_DOMAIN is missing", async () => {
+    delete process.env.MAILGUN_DOMAIN;
+    await expect(
+      sendEmail({ to: "a@b.com", subject: "S", body: "B" }, { template: "resume_link" }),
+    ).rejects.toThrow(/MAILGUN_DOMAIN/);
+  });
+
+  it("throws when MAILGUN_FROM is missing", async () => {
+    delete process.env.MAILGUN_FROM;
+    await expect(
+      sendEmail({ to: "a@b.com", subject: "S", body: "B" }, { template: "resume_link" }),
+    ).rejects.toThrow(/MAILGUN_FROM/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// sendProfessionalConfirmation — template correctness
+// Template content — high-level senders
 // ---------------------------------------------------------------------------
+
+async function captureBody(template: "professional" | "associate" | "associateNotListed" | "notification" | "associateNotification" | "resume") {
+  await (
+    {
+      professional: () => sendProfessionalConfirmation("jane@example.com", "Jane Doe"),
+      associate: () => sendAssociateConfirmation("bob@example.com", "Bob Smith", true),
+      associateNotListed: () => sendAssociateConfirmation("bob@example.com", "Bob Smith", false),
+      notification: () =>
+        sendProfessionalApplicationNotification("membership@eldaa.org.nz", "Jane Doe", "https://docs.google.com/document/d/abc"),
+      associateNotification: () =>
+        sendAssociateApplicationNotification("membership@eldaa.org.nz", "Bob Smith", "https://docs.google.com/document/d/xyz"),
+      resume: () => sendResumeLink("jane@example.com", "Jane Doe", "https://eldaa.org.nz/resume/abc123"),
+    }[template]()
+  );
+
+  const call = mockMessagesCreate.mock.calls.at(-1);
+  if (!call) throw new Error("no Mailgun call captured");
+  return { to: call[1].to[0], subject: call[1].subject, text: call[1].text as string, replyTo: call[1]["h:Reply-To"] as string | undefined };
+}
 
 describe("sendProfessionalConfirmation", () => {
-  it("produces correct email content for a named applicant", () => {
-    const fullName = "Jane Doe";
-    const subject = "Your ELDAA Professional Membership Application";
-    const body = `Dear ${fullName},
-
-Thank you for your application to become a Professional Member of ELDAA. We will process your application and get back to you as soon as we can.
-
-We look forward to seeing you soon.
-
-Kia ora,
-ELDAA Committee`;
-
-    const raw = createMessage({ to: "jane@example.com", subject, body }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("To: jane@example.com");
-    expect(decoded).toContain("Subject: Your ELDAA Professional Membership Application");
-    expect(decoded).toContain("Dear Jane Doe");
-    expect(decoded).toContain("Thank you for your application to become a Professional Member of ELDAA");
-    expect(decoded).toContain("Kia ora");
-    expect(decoded).toContain("ELDAA Committee");
-    expect(decoded).not.toContain("Reply-To:");
+  it("addresses the applicant by full name and includes the right subject", async () => {
+    const { to, subject, text } = await captureBody("professional");
+    expect(to).toBe("jane@example.com");
+    expect(subject).toBe("Your ELDAA Professional Membership Application");
+    expect(text).toContain("Dear Jane Doe");
+    expect(text).toContain("Professional Member of ELDAA");
+    expect(text).toContain("Kia ora");
   });
 });
-
-// ---------------------------------------------------------------------------
-// sendAssociateConfirmation — template correctness
-// ---------------------------------------------------------------------------
 
 describe("sendAssociateConfirmation", () => {
-  const fullName = "Bob Smith";
-  const subject = "Welcome to ELDAA — Associate Membership Confirmed";
-
-  function makeBody(listOnPage: boolean): string {
-    const listNote = listOnPage
-      ? "You have requested to be listed on our Associate Member list on our website — we will process that shortly."
-      : "You have not requested to be listed at this time. If you would like to be added in future, please email us at membership@eldaa.org.nz.";
-    return `Welcome to ELDAA ☺
-
-Dear ${fullName},
-
-We would like to officially welcome you on board the End of Life Doula Alliance of Aotearoa as an Associate Member. We are delighted you are joining us in this role, and look forward to supporting you in your mahi.
-
-${listNote}
-
-Associate Member Resources: Access your resources at https://eldaa.org.nz — Members Area — Members Login. If you haven't signed up yet, click 'Sign up' and we will approve your access. If you're already a member, click 'Log In'.
-
-You will find recordings of our educational sessions and other relevant information there.
-
-Meetings: We look forward to seeing you at our membership meetings — this is a great way to connect with your peers. We hold educational sessions (all members — last Monday of the month) and, every other month, a confidential meetup for professional members only (last Tuesday of the month). We send out links prior to each meeting.
-
-Networking: We encourage you to connect with others in your area through our Doula hubs. Please reach out to any of us at any time if you need support — we are here for each other.
-
-Questions? Email us at membership@eldaa.org.nz — we would love your feedback and any ideas you have to support you in your mahi.
-
-Again, welcome on board ☺
-
-Kia ora,
-ELDAA Committee`;
-  }
-
-  it("includes listing note when listOnPage is true", () => {
-    const body = makeBody(true);
-    const raw = createMessage({ to: "bob@example.com", subject, body, replyTo: "membership@eldaa.org.nz" }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("To: bob@example.com");
-    expect(decoded).toContain("Reply-To: membership@eldaa.org.nz");
-    expect(decoded).toContain("You have requested to be listed on our Associate Member list");
+  it("includes the listing note when listOnPage is true and sets Reply-To", async () => {
+    const { text, replyTo } = await captureBody("associate");
+    expect(text).toContain("You have requested to be listed on our Associate Member list");
+    expect(replyTo).toBe("membership@eldaa.org.nz");
   });
 
-  it("includes non-listing note when listOnPage is false", () => {
-    const body = makeBody(false);
-    const raw = createMessage({ to: "bob@example.com", subject, body, replyTo: "membership@eldaa.org.nz" }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("You have not requested to be listed at this time");
-    expect(decoded).toContain("membership@eldaa.org.nz");
+  it("includes the non-listing note when listOnPage is false", async () => {
+    const { text } = await captureBody("associateNotListed");
+    expect(text).toContain("You have not requested to be listed at this time");
+    expect(text).toContain("membership@eldaa.org.nz");
   });
 
-  it("includes Reply-To: membership@eldaa.org.nz", () => {
-    const body = makeBody(false);
-    const raw = createMessage({ to: "bob@example.com", subject, body, replyTo: "membership@eldaa.org.nz" }, "no-reply@eldaa.org.nz");
-    expect(decodeRaw(raw)).toContain("Reply-To: membership@eldaa.org.nz");
-  });
-
-  it("includes resources, meetings, networking and welcome content", () => {
-    const body = makeBody(false);
-    const raw = createMessage({ to: "bob@example.com", subject, body, replyTo: "membership@eldaa.org.nz" }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("Associate Member Resources");
-    expect(decoded).toContain("https://eldaa.org.nz");
-    expect(decoded).toContain("Members Login");
-    expect(decoded).toContain("Meetings");
-    expect(decoded).toContain("Networking");
-    expect(decoded).toContain("welcome on board");
-    expect(decoded).toContain("Kia ora");
+  it("includes member resources, meetings, and welcome content", async () => {
+    const { text } = await captureBody("associateNotListed");
+    expect(text).toContain("Associate Member Resources");
+    expect(text).toContain("Meetings");
+    expect(text).toContain("Networking");
+    expect(text).toContain("welcome on board");
   });
 });
-
-// ---------------------------------------------------------------------------
-// sendProfessionalApplicationNotification — template correctness
-// ---------------------------------------------------------------------------
 
 describe("sendProfessionalApplicationNotification", () => {
-  it("includes applicant name and Google Doc URL", () => {
-    const subject = "New Professional Membership Application — Jane Doe";
-    const body = `A new professional membership application has been received and the review document is ready.
-
-Applicant: Jane Doe
-Review document: https://docs.google.com/document/d/abc123
-
-Please log in to review the application and continue the membership process.
-
-ELDAA`;
-
-    const raw = createMessage({ to: "membership@eldaa.org.nz", subject, body }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("To: membership@eldaa.org.nz");
-    expect(decoded).toContain("Subject: New Professional Membership Application — Jane Doe");
-    expect(decoded).toContain("Applicant: Jane Doe");
-    expect(decoded).toContain("Review document: https://docs.google.com/document/d/abc123");
+  it("includes applicant name and Google Doc URL", async () => {
+    const { to, subject, text } = await captureBody("notification");
+    expect(to).toBe("membership@eldaa.org.nz");
+    expect(subject).toBe("New Professional Membership Application — Jane Doe");
+    expect(text).toContain("Applicant: Jane Doe");
+    expect(text).toContain("https://docs.google.com/document/d/abc");
   });
 });
 
-// ---------------------------------------------------------------------------
-// sendResumeLink — template correctness
-// ---------------------------------------------------------------------------
+describe("sendAssociateApplicationNotification", () => {
+  it("includes associate name and review doc URL", async () => {
+    const { to, subject, text } = await captureBody("associateNotification");
+    expect(to).toBe("membership@eldaa.org.nz");
+    expect(subject).toBe("New Associate Membership Application — Bob Smith");
+    expect(text).toContain("Applicant: Bob Smith");
+    expect(text).toContain("https://docs.google.com/document/d/xyz");
+  });
+});
 
 describe("sendResumeLink", () => {
-  it("includes resume link and application context", () => {
-    const fullName = "Jane Doe";
-    const resumeLink = "https://eldaa.org.nz/resume/abc123";
-    const subject = "Your ELDAA Professional Membership Application";
-    const body = `Dear ${fullName},
-
-Thank you for starting your Professional Membership application with ELDAA.
-
-To continue your application, please click the link below:
-${resumeLink}
-
-This link will allow you to upload your required documents and complete your application.
-
-If you did not start this application, please ignore this email.
-
-Best regards,
-ELDAA`;
-
-    const raw = createMessage({ to: "jane@example.com", subject, body }, "no-reply@eldaa.org.nz");
-    const decoded = decodeRaw(raw);
-    expect(decoded).toContain("To: jane@example.com");
-    expect(decoded).toContain("Subject: Your ELDAA Professional Membership Application");
-    expect(decoded).toContain("Dear Jane Doe");
-    expect(decoded).toContain(resumeLink);
-    expect(decoded).toContain("If you did not start this application, please ignore this email");
+  it("includes the resume link and applicant name", async () => {
+    const { to, subject, text } = await captureBody("resume");
+    expect(to).toBe("jane@example.com");
+    expect(subject).toBe("Your ELDAA Professional Membership Application");
+    expect(text).toContain("Dear Jane Doe");
+    expect(text).toContain("https://eldaa.org.nz/resume/abc123");
+    expect(text).toContain("If you did not start this application, please ignore this email");
   });
 });

@@ -162,20 +162,14 @@ ELDAA Committee
 
 **Module:** `src/lib/email-sender.ts`
 
-### Authentication (in order of preference)
-
-1. **Gmail OAuth2** (primary)
-   - `GMAIL_OAUTH_CLIENT_ID`
-   - `GMAIL_OAUTH_CLIENT_SECRET`
-   - `GMAIL_OAUTH_REFRESH_TOKEN`
-
-2. **Service Account** (fallback)
-   - Uses `GOOGLE_APPLICATION_CREDENTIALS` or workload identity
+### Provider: Mailgun (HTTP API via `mailgun.js`)
 
 ### Configuration
 
 ```env
-GMAIL_SENDER_EMAIL=no-reply@eldaa.org.nz
+MAILGUN_API_KEY=key-...
+MAILGUN_DOMAIN=mg.eldaa.org.nz
+MAILGUN_FROM=ELDAA <no-reply@mg.eldaa.org.nz>
 ```
 
 ### Audit Logging
