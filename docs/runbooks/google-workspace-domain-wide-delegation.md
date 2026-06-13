@@ -37,8 +37,12 @@ The impersonation user must:
   ideal — if the SA key leaks, the blast radius is the impersonation user,
   not a person)
 
-`no-reply@eldaa.org.nz` is the existing sender for transactional email; it
-also works as the Drive impersonation user and avoids creating a new account.
+`no-reply@eldaa.org.nz` was the original impersonation user (and Gmail
+sender). Transactional email moved to Mailgun in 2026-06 and the Gmail
+account was disabled shortly after — the Workspace user no longer exists.
+Current impersonation user: `it-admin@eldaa.org.nz` (set on Fly 2026-06-14,
+both `eldaa` and `eldaa-production`). If this account is also disabled in
+the future, pick another Workspace admin and update both Fly secrets.
 
 ### 2. Get the service account Client ID
 
@@ -72,10 +76,10 @@ Save. Changes propagate within a few minutes.
 
 ```sh
 fly secrets set -a eldaa \
-  GOOGLE_WORKSPACE_IMPERSONATE_USER=no-reply@eldaa.org.nz
+  GOOGLE_WORKSPACE_IMPERSONATE_USER=it-admin@eldaa.org.nz
 
 fly secrets set -a eldaa-production \
-  GOOGLE_WORKSPACE_IMPERSONATE_USER=no-reply@eldaa.org.nz
+  GOOGLE_WORKSPACE_IMPERSONATE_USER=it-admin@eldaa.org.nz
 ```
 
 Restart the running machines (or wait for auto-stop) so the new env is
@@ -91,7 +95,7 @@ fly machine stop <started-id> -a eldaa
 
 ```sh
 fly logs -a eldaa --no-tail | grep google_service_account_auth
-# expect: {"impersonating":true,"subject":"no-reply@eldaa.org.nz",...}
+# expect: {"impersonating":true,"subject":"it-admin@eldaa.org.nz",...}
 ```
 
 Then trigger a real upload (e.g. submit one document via the apply form).
