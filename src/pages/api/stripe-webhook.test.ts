@@ -20,6 +20,8 @@ const mockSetCancelled = vi.fn();
 const mockSetPaymentFailed = vi.fn();
 const mockGetApplicantById = vi.fn();
 const mockMarkApplicantPaid = vi.fn();
+const mockMarkRenewalPaid = vi.fn();
+const mockGetRenewalBySession = vi.fn();
 
 vi.mock("../../lib/email-sender", () => ({
   sendProfessionalConfirmation: mockSendProfessionalConfirmation,
@@ -49,6 +51,11 @@ vi.mock("../../lib/memberships", () => ({
 vi.mock("../../lib/upload-sheet", () => ({
   getApplicantById: mockGetApplicantById,
   markApplicantPaid: mockMarkApplicantPaid,
+}));
+
+vi.mock("../../lib/renewal-sheet", () => ({
+  markRenewalPaid: mockMarkRenewalPaid,
+  getRenewalBySession: mockGetRenewalBySession,
 }));
 
 vi.mock("@sentry/node", () => ({
@@ -394,6 +401,144 @@ describe("stripe-webhook", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(mockHasActiveSubscription).toHaveBeenCalledWith("cus_123");
+    });
+  });
+
+  describe("renewal flow", () => {
+    beforeEach(() => {
+      mockMarkRenewalPaid.mockReset();
+      mockGetRenewalBySession.mockReset();
+      mockAppendCheckoutLog.mockReset();
+    });
+
+    it("marks renewal row paid when checkout.session.completed fires for renewal metadata", async () => {
+      const session = makeCheckoutSession({
+        id: "cs_renewal_1",
+        customer: "cus_renewal",
+        customer_email: "alice@example.com",
+        payment_intent: "pi_1",
+        metadata: {
+          flow: "renewal",
+          tier: "pm",
+          renewal_id: "r1",
+          renewal_year: "2026",
+          first_name: "Alice",
+          last_name: "Smith",
+          email: "alice@example.com",
+          phone: "",
+          pd_entries: "[]",
+          amount_cents: "15000",
+        },
+      });
+
+      mockGetRenewalBySession.mockResolvedValueOnce({
+        renewalId: "r1",
+        tier: "pm",
+        renewalYear: 2026,
+        firstName: "Alice",
+        lastName: "Smith",
+        email: "alice@example.com",
+        phone: "",
+        pdEntries: [],
+        amountPaidCents: 15000,
+        currency: "nzd",
+        paymentStatus: "pending",
+        stripeSession: "cs_renewal_1",
+        createdAt: "2026-06-23T10:00:00Z",
+        paidAt: "",
+      });
+      mockMarkRenewalPaid.mockResolvedValueOnce(undefined);
+      mockAppendCheckoutLog.mockResolvedValueOnce(undefined);
+
+      const { POST } = await import("../../pages/api/stripe-webhook");
+      const body = JSON.stringify({ type: "checkout.session.completed", data: { object: session } });
+      const req = makeReq(body, buildSignature(body));
+      const response = await POST(req);
+      expect(response.status).toBe(200);
+
+      expect(mockMarkRenewalPaid).toHaveBeenCalledWith("r1", expect.any(String));
+      expect(mockGetRenewalBySession).toHaveBeenCalledWith("cs_renewal_1");
+      expect(mockAppendCheckoutLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstName: "Alice",
+          lastName: "Smith",
+          email: "alice@example.com",
+          plan: "renewal_pm",
+          amountPaid: 15000,
+          sessionId: "cs_renewal_1",
+          customerId: "cus_renewal",
+        })
+      );
+    });
+
+    it("is idempotent — skips markRenewalPaid when row already paid", async () => {
+      const session = makeCheckoutSession({
+        id: "cs_renewal_2",
+        customer: "cus_2",
+        customer_email: "bob@example.com",
+        payment_intent: "pi_2",
+        metadata: {
+          flow: "renewal",
+          tier: "am",
+          renewal_id: "r2",
+          renewal_year: "2026",
+          first_name: "Bob",
+          last_name: "Doe",
+          email: "bob@example.com",
+          phone: "",
+          pd_entries: "",
+          amount_cents: "7500",
+        },
+      });
+
+      mockGetRenewalBySession.mockResolvedValueOnce({
+        renewalId: "r2",
+        tier: "am",
+        renewalYear: 2026,
+        firstName: "Bob",
+        lastName: "Doe",
+        email: "bob@example.com",
+        phone: "",
+        pdEntries: [],
+        amountPaidCents: 7500,
+        currency: "nzd",
+        paymentStatus: "paid",
+        stripeSession: "cs_renewal_2",
+        createdAt: "2026-06-23T10:00:00Z",
+        paidAt: "2026-06-23T10:01:00Z",
+      });
+
+      const { POST } = await import("../../pages/api/stripe-webhook");
+      const body = JSON.stringify({ type: "checkout.session.completed", data: { object: session } });
+      const req = makeReq(body, buildSignature(body));
+      const response = await POST(req);
+      expect(response.status).toBe(200);
+      expect(mockMarkRenewalPaid).not.toHaveBeenCalled();
+      expect(mockAppendCheckoutLog).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when renewal row not found (logs and returns 200)", async () => {
+      const session = makeCheckoutSession({
+        id: "cs_orphan",
+        customer: "cus_3",
+        customer_email: "x@example.com",
+        payment_intent: "pi_3",
+        metadata: {
+          flow: "renewal",
+          tier: "pm",
+          renewal_id: "missing",
+        },
+      });
+
+      mockGetRenewalBySession.mockResolvedValueOnce(null);
+
+      const { POST } = await import("../../pages/api/stripe-webhook");
+      const body = JSON.stringify({ type: "checkout.session.completed", data: { object: session } });
+      const req = makeReq(body, buildSignature(body));
+      const response = await POST(req);
+      expect(response.status).toBe(200);
+      expect(mockMarkRenewalPaid).not.toHaveBeenCalled();
+      expect(mockAppendCheckoutLog).not.toHaveBeenCalled();
     });
   });
 });
