@@ -3,518 +3,23 @@
   "bugs": [
     {
       "id": "bug-001",
-      "timestamp": "2026-06-13T09:15:49.165Z",
-      "error_message": "Incorrect value in code",
-      "file": "src/pages/api/professional/upload-file.ts",
-      "root_cause": "Had \"node:stream\"",
-      "fix": "Changed to \"../../../lib/staging\"",
+      "timestamp": "2026-06-23T03:19:38.683Z",
+      "error_message": "Missing await",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
       "tags": [
         "auto-detected",
-        "wrong-value",
+        "async-fix",
         "ts"
       ],
       "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-13T09:15:51.007Z"
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:19:38.683Z"
     },
     {
       "id": "bug-002",
-      "timestamp": "2026-06-13T09:15:59.439Z",
-      "error_message": "Incorrect value in code",
-      "file": "src/lib/google-docs.ts",
-      "root_cause": "Had \"AM Applications\"",
-      "fix": "Changed to `${getStagingPrefix()}AM Applications`",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 4,
-      "last_seen": "2026-06-13T09:16:28.359Z"
-    },
-    {
-      "id": "bug-003",
-      "timestamp": "2026-06-13T20:28:46.920Z",
-      "error_message": "Incorrect value in code",
-      "file": ".run/probe-find-pm-folder.mjs",
-      "root_cause": "Had \"https://www.googleapis.com/auth/drive.readonly\"",
-      "fix": "Changed to \"https://www.googleapis.com/auth/drive\"",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "mjs"
-      ],
-      "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-13T20:29:18.961Z"
-    },
-    {
-      "id": "bug-004",
-      "timestamp": "2026-06-13T20:33:31.096Z",
-      "error_message": "Incorrect value in code",
-      "file": ".run/smoke-upload-staging.mjs",
-      "root_cause": "Had \"Sheet1!A1:AU50\"",
-      "fix": "Changed to \"Professional Applications!A1:AU50\"",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "mjs"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T20:33:31.096Z"
-    },
-    {
-      "id": "bug-005",
-      "timestamp": "2026-06-13T20:34:18.892Z",
-      "error_message": "Incorrect value in code",
-      "file": "docs/runbooks/google-workspace-domain-wide-delegation.md",
-      "root_cause": "Had \"no-reply@eldaa.org.nz\"",
-      "fix": "Changed to \"it-admin@eldaa.org.nz\"",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "md"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T20:34:18.892Z"
-    },
-    {
-      "id": "bug-006",
-      "timestamp": "2026-06-14T08:35:00.000Z",
-      "error_message": "Failed to upload document. Please try again. (Code: UPLOAD_INTERNAL_ERROR, Request ID: 87ca340c-c5a7-4f84-b69e-87d6b2bf4e17)",
-      "file": "src/pages/api/professional/upload-file.ts",
-      "root_cause": "DWD impersonation was off (GOOGLE_WORKSPACE_IMPERSONATE_USER unset on both Fly apps). The Workspace account no-reply@eldaa.org.nz was disabled when transactional email moved to Mailgun (2026-06-13), so re-pointing DWD at it would have failed. Without DWD, the SA acts as itself and Drive uploads 403 storageQuotaExceeded — caught by the generic try/catch and surfaced as 500 UPLOAD_INTERNAL_ERROR. Secondary cause: PM Applications folder is now nested under IT projects (16XHm2qW3tdCFr7X52wplYGc2W-Lo3g1U) in the shared drive, not a direct child. The cerebrum entry from 2026-06-13 said it was a direct child of the shared drive, but the restructure moved it again.",
-      "fix": "Set GOOGLE_WORKSPACE_IMPERSONATE_USER=it-admin@eldaa.org.nz on both Fly apps (staging + prod). Set GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID=16XHm2qW3tdCFr7X52wplYGc2W-Lo3g1U (IT projects parent) on both apps so ensureFolderExists reuses the existing PM/AM Applications leaves. Verified end-to-end via .run/smoke-upload-staging.mjs — returned 200 success with real fileId. Updated runbook google-workspace-domain-wide-delegation.md to point at it-admin@eldaa.org.nz.",
-      "tags": [
-        "upload",
-        "dwd",
-        "impersonation",
-        "fly-secrets",
-        "drive",
-        "storageQuotaExceeded"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-14T08:35:00.000Z"
-    },
-    {
-      "id": "bug-007",
-      "timestamp": "2026-06-14T08:50:00.000Z",
-      "error_message": "checkout.session.completed errored: The price specified is inactive. This field only accepts active prices. (sessionId=cs_test_a1ZhPu9Met93Zm8nVUSrDiyZ2aiV0aPQMjbDitrzrfFwsG3zpQ7s43CAnk)",
-      "file": "src/pages/api/stripe-webhook.ts",
-      "root_cause": "STRIPE_PRICE_PROFESSIONAL and STRIPE_PRICE_ASSOCIATE on staging pointed at price IDs that had been archived in Stripe (price change from $120→$150/yr and $50→$75/yr). The checkout session was created and the customer was charged, but the recurring subscription create step in the webhook used the archived price → 400 from Stripe → thrown error → markApplicantPaid, createApplicationReviewDoc, and confirmation email all skipped. Production had already been updated to new active prices; staging was stale.",
-      "fix": "Set STRIPE_PRICE_PROFESSIONAL=price_1TZlOkCqKoUYavpqr1DuOgNU and STRIPE_PRICE_ASSOCIATE=price_1TZlQ7CqKoUYavpqttgoDYJH on staging (the active recurring annual prices for the same products). Production was already correct — verified via direct Stripe API call with the live key. Failed session must be replayed in Stripe dashboard to recover the paid marker + review doc for applicant 09de612d-aa84-4a62-be56-971aaeb6db56.",
-      "tags": [
-        "stripe",
-        "webhook",
-        "pricing",
-        "inactive-price",
-        "fly-secrets"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-14T08:50:00.000Z"
-    },
-    {
-      "id": "bug-008",
-      "timestamp": "2026-06-13T21:23:49.270Z",
-      "error_message": "Null/undefined access in ",
-      "file": "src/lib/email-sender.ts",
-      "root_cause": "Property access on potentially null/undefined value",
-      "fix": "Added null safety (optional chaining or null check)",
-      "tags": [
-        "auto-detected",
-        "null-safety",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T21:23:49.270Z"
-    },
-    {
-      "id": "bug-009",
-      "timestamp": "2026-06-13T21:24:16.094Z",
-      "error_message": "Type error",
-      "file": "src/lib/email-sender.test.ts",
-      "root_cause": "Missing or incorrect type annotation",
-      "fix": "Added type assertion/annotation",
-      "tags": [
-        "auto-detected",
-        "type-fix",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T21:24:16.094Z"
-    },
-    {
-      "id": "bug-010",
-      "timestamp": "2026-06-13T23:33:34.955Z",
-      "error_message": "Wrong reference: wolf should be claude",
-      "file": ".gitignore",
-      "root_cause": "Used \"wolf\" instead of \"claude\"",
-      "fix": "Changed wolf → claude",
-      "tags": [
-        "auto-detected",
-        "wrong-reference",
-        "unknown"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T23:33:34.955Z"
-    },
-    {
-      "id": "bug-011",
-      "timestamp": "2026-06-13T23:37:46.000Z",
-      "error_message": "Committed .wolf/ tracking without staging .gitignore change — first commit d68e0cc only staged files under .wolf/, not the .gitignore line deletion",
-      "file": ".gitignore",
-      "root_cause": "Ran `git add .wolf/` (scoped to directory) before `git add .gitignore`. The .gitignore edit was never staged, so commit included only the new .wolf/ files. Working tree showed `.gitignore` as unstaged M after commit.",
-      "fix": "git add .gitignore && git commit --amend --no-edit. New commit 73c63a9 includes the .gitignore deletion as a 1-line change in the same commit.",
-      "tags": [
-        "git",
-        "staging",
-        "amend",
-        "self-caught"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-13T23:37:46.000Z"
-    },
-    {
-      "id": "bug-012",
-      "timestamp": "2026-06-16T07:00:19.098Z",
-      "error_message": "Type error",
-      "file": "src/pages/api/professional/upload-complete.ts",
-      "root_cause": "Missing or incorrect type annotation",
-      "fix": "Added type assertion/annotation | Also: const session = await stripe.checkout.sessions.create(params; idempotencyKey: `upload-complete:${applicant.id}`,",
-      "tags": [
-        "auto-detected",
-        "type-fix",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-16T07:00:19.445Z"
-    },
-    {
-      "id": "bug-013",
-      "timestamp": "2026-06-16T07:01:05.992Z",
-      "error_message": "Incorrect value in code",
-      "file": "src/pages/api/professional/upload-complete.ts",
-      "root_cause": "Had \"2025-09-30.clover\"",
-      "fix": "Changed to \"2026-02-25.clover\"",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-16T07:01:05.992Z"
-    },
-    {
-      "id": "bug-014",
-      "timestamp": "2026-06-16T07:04:35.499Z",
-      "error_message": "Type error",
-      "file": "src/pages/api/create-professional-checkout.ts",
-      "root_cause": "Missing or incorrect type annotation",
-      "fix": "Added type assertion/annotation | Also: const session = await stripe.checkout.sessions.create(params; idempotencyKey: `checkout:prof:${email}`,",
-      "tags": [
-        "auto-detected",
-        "type-fix",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-16T07:04:38.338Z"
-    },
-    {
-      "id": "bug-015",
-      "timestamp": "2026-06-16T07:06:22.721Z",
-      "error_message": "Type error",
-      "file": "src/pages/api/create-checkout-session.ts",
-      "root_cause": "Missing or incorrect type annotation",
-      "fix": "Added type assertion/annotation | Also: const session = await stripe.checkout.sessions.create(params; idempotencyKey: `checkout:${plan}:${email}`,",
-      "tags": [
-        "auto-detected",
-        "type-fix",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-16T07:06:26.426Z"
-    },
-    {
-      "id": "bug-016",
-      "timestamp": "2026-06-22T21:25:27.558Z",
-      "error_message": "Significant refactor of ",
-      "file": "../.claude/plans/witty-fluttering-cerf.md",
-      "root_cause": "2 lines replaced/restructured",
-      "fix": "Rewrote 6→7 lines (2 removed)",
-      "tags": [
-        "auto-detected",
-        "refactor",
-        "md"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T21:25:27.558Z"
-    },
-    {
-      "id": "bug-017",
-      "timestamp": "2026-06-22T23:05:07.985Z",
-      "error_message": "Incorrect value in code",
-      "file": "src/lib/stripe-products.ts",
-      "root_cause": "Had \"2025-09-30.clover\"",
-      "fix": "Changed to \"2026-02-25.clover\"",
-      "tags": [
-        "auto-detected",
-        "wrong-value",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:05:07.985Z"
-    },
-    {
-      "id": "bug-018",
-      "timestamp": "2026-06-22T23:05:10.019Z",
-      "error_message": "Wrong reference: unit_amount should be INVALID_UNIT_AMOUNT",
-      "file": "src/lib/stripe-products.test.ts",
-      "root_cause": "Used \"unit_amount\" instead of \"INVALID_UNIT_AMOUNT\"",
-      "fix": "Changed unit_amount → INVALID_UNIT_AMOUNT",
-      "tags": [
-        "auto-detected",
-        "wrong-reference",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:05:10.019Z"
-    },
-    {
-      "id": "bug-019",
-      "timestamp": "2026-06-22T23:14:34.969Z",
-      "error_message": "Missing error handling in function",
-      "file": "src/pages/api/stripe-webhook.ts",
-      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
-      "fix": "Added try/catch block",
-      "tags": [
-        "auto-detected",
-        "error-handling",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:14:34.969Z"
-    },
-    {
-      "id": "bug-020",
-      "timestamp": "2026-06-22T23:21:50.639Z",
-      "error_message": "Null/undefined access in ",
-      "file": "src/pages/api/stripe-webhook.ts",
-      "root_cause": "Property access on potentially null/undefined value",
-      "fix": "Added null safety (optional chaining or null check)",
-      "tags": [
-        "auto-detected",
-        "null-safety",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:21:50.639Z"
-    },
-    {
-      "id": "bug-021",
-      "timestamp": "2026-06-23T11:25:34.000Z",
-      "error_message": "Cannot access 'mockResolveRenewalPrice' before initialization",
-      "file": "src/pages/api/renew/checkout-pm.test.ts",
-      "root_cause": "vi.mock factory references top-level const variables that haven't been hoisted; vitest hoists vi.mock calls to top of file, so the factory runs before module-level const declarations",
-      "fix": "Wrap mock functions in vi.hoisted(() => ({ ... })) so they're initialized before vi.mock factories run",
-      "tags": [
-        "vitest",
-        "mocking",
-        "hoisting",
-        "tdd",
-        "renewal"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T11:25:34.000Z"
-    },
-    {
-      "id": "bug-022",
-      "timestamp": "2026-06-23T11:26:20.000Z",
-      "error_message": "toHaveBeenCalledWith expected [ObjectContaining] but received [params, options] — 2 args vs 1 matcher",
-      "file": "src/pages/api/renew/checkout-pm.ts",
-      "root_cause": "Vitest 4 strictly compares arg count in toHaveBeenCalledWith. Passing idempotencyKey as 2nd options arg means the mock receives 2 args but the spec test only provides 1 matcher.",
-      "fix": "Embed idempotency_key inside metadata of the params object (Stripe SDK ignores unknown metadata keys) so the call uses a single arg matching the test matcher",
-      "tags": [
-        "vitest",
-        "toHaveBeenCalledWith",
-        "stripe",
-        "idempotency",
-        "renewal"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T11:26:20.000Z"
-    },
-    {
-      "id": "bug-023",
-      "timestamp": "2026-06-22T23:28:55.006Z",
-      "error_message": "Significant refactor of ",
-      "file": "src/pages/api/renew/checkout-pm.test.ts",
-      "root_cause": "2 lines replaced/restructured",
-      "fix": "Rewrote 5→8 lines (2 removed)",
-      "tags": [
-        "auto-detected",
-        "refactor",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:28:55.006Z"
-    },
-    {
-      "id": "bug-024",
-      "timestamp": "2026-06-23T11:30:00.000Z",
-      "error_message": "Stripe idempotencyKey was moved into metadata.idempotency_key instead of being passed as the 2nd arg to stripe.checkout.sessions.create(); a retried POST could create two Checkout sessions and double-charge the customer",
-      "file": "src/pages/api/renew/checkout-pm.ts",
-      "root_cause": "Implementation was changed to match a one-arg vitest matcher. The implementer dropped the { idempotencyKey } options object and stuffed the key into params.metadata. Stripe SDK uses the 2nd arg of .create() for request-level idempotency — unknown metadata keys are ignored. Original mistake introduced alongside commit 8725e72.",
-      "fix": "Restored 2-arg form: getStripe().checkout.sessions.create(params, { idempotencyKey: `renewal:pm:${renewalId}` }). Removed idempotency_key from metadata. Updated happy-path test to assert both args: toHaveBeenCalledWith(expect.objectContaining({...}), expect.objectContaining({ idempotencyKey: expect.stringMatching(/^renewal:pm:/) })).",
-      "tags": [
-        "stripe",
-        "idempotency",
-        "checkout",
-        "renewal",
-        "correctness",
-        "double-charge",
-        "vitest",
-        "test-matcher-shape"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T11:30:00.000Z"
-    },
-    {
-      "id": "bug-025",
-      "timestamp": "2026-06-22T23:40:06.428Z",
-      "error_message": "Missing guard clause",
-      "file": "src/pages/api/health.test.ts",
-      "root_cause": "No early return/throw for edge case: key === \"pm_renewal_nzd\"",
-      "fix": "Added guard clause: if (key === \"pm_renewal_nzd\")",
-      "tags": [
-        "auto-detected",
-        "guard-clause",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 2,
-      "last_seen": "2026-06-22T23:40:17.897Z"
-    },
-    {
-      "id": "bug-026",
-      "timestamp": "2026-06-22T23:40:23.287Z",
-      "error_message": "Missing error handling in function",
-      "file": "src/pages/api/health.ts",
-      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
-      "fix": "Added try/catch block",
-      "tags": [
-        "auto-detected",
-        "error-handling",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:40:23.287Z"
-    },
-    {
-      "id": "bug-027",
-      "timestamp": "2026-06-22T23:40:29.913Z",
-      "error_message": "Significant refactor of ",
-      "file": "src/pages/api/health.ts",
-      "root_cause": "3 lines replaced/restructured",
-      "fix": "Rewrote 33→63 lines (3 removed)",
-      "tags": [
-        "auto-detected",
-        "refactor",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-22T23:40:29.913Z"
-    },
-    {
-      "id": "bug-028",
-      "timestamp": "2026-06-23T00:09:04.369Z",
-      "error_message": "Significant refactor of ",
-      "file": "src/env.d.ts",
-      "root_cause": "2 lines replaced/restructured",
-      "fix": "Rewrote 5→3 lines (2 removed)",
-      "tags": [
-        "auto-detected",
-        "refactor",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T00:09:04.369Z"
-    },
-    {
-      "id": "bug-029",
-      "timestamp": "2026-06-23T00:09:34.295Z",
-      "error_message": "Wrong reference: unitAmount should be unit_amount",
-      "file": "src/lib/stripe-products.ts",
-      "root_cause": "Used \"unitAmount\" instead of \"unit_amount\"",
-      "fix": "Changed unitAmount → unit_amount",
-      "tags": [
-        "auto-detected",
-        "wrong-reference",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T00:09:34.295Z"
-    },
-    {
-      "id": "bug-030",
-      "timestamp": "2026-06-23T00:11:39.966Z",
-      "error_message": "Significant refactor of ",
-      "file": "docs/superpowers/plans/2026-06-23-membership-renewal-form.md",
-      "root_cause": "10 lines replaced/restructured",
-      "fix": "Rewrote 18→20 lines (10 removed)",
-      "tags": [
-        "auto-detected",
-        "refactor",
-        "md"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T00:11:39.966Z"
-    },
-    {
-      "id": "bug-031",
-      "timestamp": "2026-06-23T03:10:19.777Z",
-      "error_message": "Missing error handling in function",
-      "file": "src/lib/renewal-sheet.ts",
-      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
-      "fix": "Added try/catch block",
-      "tags": [
-        "auto-detected",
-        "error-handling",
-        "ts"
-      ],
-      "related_bugs": [],
-      "occurrences": 1,
-      "last_seen": "2026-06-23T03:10:19.777Z"
-    },
-    {
-      "id": "bug-032",
-      "timestamp": "2026-06-23T03:11:28.074Z",
+      "timestamp": "2026-06-23T03:19:58.024Z",
       "error_message": "Type error",
       "file": "src/lib/renewal-sheet.test.ts",
       "root_cause": "Missing or incorrect type annotation",
@@ -526,37 +31,174 @@
       ],
       "related_bugs": [],
       "occurrences": 1,
-      "last_seen": "2026-06-23T03:11:28.074Z"
+      "last_seen": "2026-06-23T03:19:58.024Z"
     },
     {
-      "id": "bug-033",
-      "timestamp": "2026-06-23T03:15:00.000Z",
-      "error_message": "Failed to write renewal row: Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close",
-      "file": "src/lib/renewal-sheet.ts",
-      "root_cause": "Google OAuth token endpoint drops connections intermittently (~1/100 calls) with Premature close / ECONNRESET / EAI_AGAIN. The transient error was not retried and bubbled to checkout-pm.ts which returned 500 SHEET_WRITE_FAILED to the user. Bug-031 PR #17 wrapped appendRenewal in try/catch but did not address the root cause — only changed the HTTP response surface. The retry belongs inside the Sheets call layer, not at the API endpoint.",
-      "fix": "Added withTransientRetry helper in renewal-sheet.ts: 3 attempts max, exponential backoff 250ms/500ms, retries only on Premature close / ECONNRESET / ETIMEDOUT / EAI_AGAIN / socket hang up. Wrapped all 6 sheets.spreadsheets.* calls (ensureRenewalsSheet: get/batchUpdate/values.update, appendRenewal: values.append, markRenewalPaid: values.get/values.update, getRenewalBySession: values.get). Removed redundant await from getServiceAccountJwtAuth call (constructor is synchronous). Added logger.warn('renewal_sheet_transient_retry') with label/attempt/error for observability. Added 4 unit tests: retry-then-succeed, no-retry-on-non-transient, give-up-after-3, EAI_AGAIN retry.",
+      "id": "bug-003",
+      "timestamp": "2026-06-23T03:20:24.451Z",
+      "error_message": "Wrong reference: mockUpdate should be mockAuthorize",
+      "file": "src/lib/renewal-sheet.test.ts",
+      "root_cause": "Used \"mockUpdate\" instead of \"mockAuthorize\"",
+      "fix": "Changed mockUpdate → mockAuthorize",
       "tags": [
-        "googleapis",
-        "transient",
-        "retry",
-        "preemptive-close",
-        "econnreset",
-        "eai_again",
-        "renewal",
-        "sheet",
-        "network",
-        "oauth",
-        "staging"
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:20:24.451Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-06-23T03:21:40.251Z",
+      "error_message": "Missing await",
+      "file": "src/lib/renewal-sheet.test.ts",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:21:40.251Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-06-23T03:23:26.948Z",
+      "error_message": "Missing error handling in function",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:23:26.948Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-06-23T03:28:40.362Z",
+      "error_message": "Null/undefined access in ",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:28:40.362Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-06-23T03:31:12.318Z",
+      "error_message": "Wrong reference: async should be timeout",
+      "file": "src/lib/renewal-sheet.test.ts",
+      "root_cause": "Used \"async\" instead of \"timeout\"",
+      "fix": "Changed async → timeout",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-06-23T03:31:12.438Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-06-23T03:49:04.444Z",
+      "error_message": "Type error",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:49:04.444Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-06-23T03:54:10.138Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "22 lines replaced/restructured",
+      "fix": "Rewrote 26→3 lines (22 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:54:10.138Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-06-23T03:54:50.155Z",
+      "error_message": "Wrong return value",
+      "file": "src/pages/api/renew/checkout-pm.ts",
+      "root_cause": "Was returning: serverError(\"SHEET_WRITE_FAILED\", `Failed to write",
+      "fix": "Now returns: serverError(\"SHEET_WRITE_FAILED\", `Failed to write",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:54:50.155Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-06-23T03:54:50.361Z",
+      "error_message": "Wrong return value",
+      "file": "src/pages/api/renew/checkout-am.ts",
+      "root_cause": "Was returning: serverError(\"SHEET_WRITE_FAILED\", `Failed to write",
+      "fix": "Now returns: serverError(\"SHEET_WRITE_FAILED\", `Failed to write",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:54:50.361Z"
+    },
+    {
+      "id": "bug-034",
+      "timestamp": "2026-06-23T03:57:00.000Z",
+      "error_message": "Sustained Premature close bursts on Google OAuth token endpoint from Fly syd region exhaust 5 server-side retries (~16.5s total wait). User still sees SHEET_WRITE_FAILED.",
+      "file": "src/pages/api/renew/checkout-pm.ts, checkout-am.ts",
+      "root_cause": "gaxios 6.7.1 (used by googleapis/google-auth-library) has a deprecated HTTPS adapter that drops connections during Google OAuth token fetch. Both gaxios and google-auth-library are ARCHIVED — no upstream fix coming. Server-side retry wrapper at renewal-sheet.ts layer fires as designed (verified via logs: oauth_token_refresh attempt 1+2 visible) but the same gaxios adapter is hit on every retry, so all attempts fail in a sustained burst. Raw Node.js https.request from Fly reaches oauth2.googleapis.com in 400ms — only gaxios is broken.",
+      "fix": "Set SHEET_WRITE_FAILED retryable:true so the client form can retry on click. A fresh client request almost always succeeds because the burst has cleared. Server-side retry stays in place as first defence (handles 95%+ of transient drops). For sustained outages, the only durable fix is bypassing gaxios: call https://oauth2.googleapis.com/oauth2/v4/token with native fetch, cache the JWT token, then pass cached token to google.sheets({version, auth}). Out of scope for current ticket.",
+      "tags": [
+        "gaxios",
+        "premature-close",
+        "archived",
+        "retryable",
+        "staging",
+        "client-retry",
+        "workaround"
       ],
       "related_bugs": [
-        "bug-031"
+        "bug-031",
+        "bug-033"
       ],
-      "occurrences": 3,
-      "last_seen": "2026-06-23T03:15:00.000Z"
-    }
-  ]
-}
-      "last_seen": "2026-06-23T03:11:28.074Z"
+      "occurrences": 5,
+      "last_seen": "2026-06-23T03:57:00.000Z"
     }
   ]
 }
