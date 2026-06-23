@@ -22,10 +22,10 @@ function getStripe(): Stripe {
   return stripeInstance;
 }
 
-function getProductEnvVar(lookupKey: LookupKey): string | undefined {
+function getPriceEnvVar(lookupKey: LookupKey): string | undefined {
   return lookupKey === "pm_renewal_nzd"
-    ? process.env.STRIPE_PRODUCT_PM_RENEWAL
-    : process.env.STRIPE_PRODUCT_AM_RENEWAL;
+    ? process.env.STRIPE_PRICE_PROFESSIONAL
+    : process.env.STRIPE_PRICE_ASSOCIATE;
 }
 
 export async function resolveRenewalPrice(
@@ -36,24 +36,23 @@ export async function resolveRenewalPrice(
     return { priceId: cached.priceId, currency: cached.currency, unitAmount: cached.unitAmount };
   }
 
-  const productEnvVar = getProductEnvVar(lookupKey);
-  if (!productEnvVar) {
-    throw new Error(`MISSING_CONFIG: STRIPE_PRODUCT_${lookupKey === "pm_renewal_nzd" ? "PM" : "AM"}_RENEWAL not set`);
+  const priceId = getPriceEnvVar(lookupKey);
+  if (!priceId) {
+    throw new Error(`MISSING_CONFIG: STRIPE_PRICE_${lookupKey === "pm_renewal_nzd" ? "PROFESSIONAL" : "ASSOCIATE"} not set`);
   }
 
   const stripe = getStripe();
-  const prices = await stripe.prices.list({
-    product: productEnvVar,
-    active: true,
-    lookup_keys: [lookupKey],
-    limit: 1,
-  });
-
-  if (!prices.data.length) {
-    throw new Error(`PRICE_INACTIVE: no active price for lookup_key ${lookupKey} on product ${productEnvVar}`);
+  let price: Stripe.Price;
+  try {
+    price = await stripe.prices.retrieve(priceId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    throw new Error(`PRICE_RETRIEVE_FAILED: ${msg} (priceId=${priceId})`);
   }
 
-  const price = prices.data[0];
+  if (!price.active) {
+    throw new Error(`PRICE_INACTIVE: price ${priceId} is not active`);
+  }
   if (price.currency !== "nzd") {
     throw new Error(`INVALID_CURRENCY: price for ${lookupKey} returned currency=${price.currency}, expected nzd`);
   }
