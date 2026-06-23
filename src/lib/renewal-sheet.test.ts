@@ -166,3 +166,78 @@ describe("getRenewalBySession", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("transient network retry", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID = "sheet_test_id";
+    mockAuth.mockReturnValue({});
+    mockEnsureSheet.mockResolvedValue({ data: { sheets: [{ properties: { title: "Renewals" } }] } });
+  });
+
+  function makeTransientError(): Error {
+    const err = new Error("Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close");
+    (err as Error & { code?: string }).code = "ECONNRESET";
+    return err;
+  }
+
+  it("retries appendRenewal on Premature close then succeeds", async () => {
+    mockAppend
+      .mockRejectedValueOnce(makeTransientError())
+      .mockResolvedValueOnce({});
+
+    await appendRenewal({
+      renewalId: "r1", tier: "pm", year: 2026, firstName: "A", lastName: "B",
+      email: "a@b.com", phone: "", pdEntries: [], amountCents: 15000,
+      currency: "nzd", stripeSession: "cs_1", paymentStatus: "pending",
+      createdAt: "2026-06-23T10:00:00.000Z",
+    });
+
+    expect(mockAppend).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry on non-transient errors (e.g. 400 invalid)", async () => {
+    const err = new Error("Invalid argument");
+    mockAppend.mockRejectedValueOnce(err);
+
+    await expect(appendRenewal({
+      renewalId: "r1", tier: "pm", year: 2026, firstName: "A", lastName: "B",
+      email: "a@b.com", phone: "", pdEntries: [], amountCents: 15000,
+      currency: "nzd", stripeSession: "cs_1", paymentStatus: "pending",
+      createdAt: "2026-06-23T10:00:00.000Z",
+    })).rejects.toThrow("Invalid argument");
+
+    expect(mockAppend).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after 3 attempts when transient errors persist", async () => {
+    mockAppend
+      .mockRejectedValueOnce(makeTransientError())
+      .mockRejectedValueOnce(makeTransientError())
+      .mockRejectedValueOnce(makeTransientError());
+
+    await expect(appendRenewal({
+      renewalId: "r1", tier: "pm", year: 2026, firstName: "A", lastName: "B",
+      email: "a@b.com", phone: "", pdEntries: [], amountCents: 15000,
+      currency: "nzd", stripeSession: "cs_1", paymentStatus: "pending",
+      createdAt: "2026-06-23T10:00:00.000Z",
+    })).rejects.toThrow(/Premature close/);
+
+    expect(mockAppend).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on EAI_AGAIN (DNS transient)", async () => {
+    const err = new Error("getaddrinfo EAI_AGAIN");
+    (err as Error & { code?: string }).code = "EAI_AGAIN";
+    mockAppend.mockRejectedValueOnce(err).mockResolvedValueOnce({});
+
+    await appendRenewal({
+      renewalId: "r1", tier: "pm", year: 2026, firstName: "A", lastName: "B",
+      email: "a@b.com", phone: "", pdEntries: [], amountCents: 15000,
+      currency: "nzd", stripeSession: "cs_1", paymentStatus: "pending",
+      createdAt: "2026-06-23T10:00:00.000Z",
+    });
+
+    expect(mockAppend).toHaveBeenCalledTimes(2);
+  });
+});
