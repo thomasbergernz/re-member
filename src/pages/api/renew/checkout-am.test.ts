@@ -122,6 +122,7 @@ describe("checkout-am", () => {
     expect(response.status).toBe(500);
     const json = await response.json();
     expect(json.code).toBe("SHEET_WRITE_FAILED");
+    expect(json.retryable).toBe(true);
     expect(mockStripeSessionsCreate).not.toHaveBeenCalled();
   });
 });

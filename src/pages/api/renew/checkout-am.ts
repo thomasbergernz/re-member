@@ -75,7 +75,10 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return serverError("SHEET_WRITE_FAILED", `Failed to write renewal row: ${msg}`);
+    // Marked retryable: client form should retry on click. The Sheets write
+    // is transient (gaxios 6.x Premature close on OAuth token fetch) — a
+    // retry from a fresh client context almost always succeeds.
+    return serverError("SHEET_WRITE_FAILED", `Failed to write renewal row: ${msg}`, true);
   }
 
   let session;
