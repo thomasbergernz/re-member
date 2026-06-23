@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { getServiceAccountJwtAuth } from "./google-auth";
+import { logger } from "./logger";
 
 export interface PdEntry {
   dateCompleted: string;
@@ -51,8 +52,46 @@ const RENEWAL_HEADERS = [
 const SHEET_NAME = "Renewals";
 
 async function getSheetsClient() {
-  const auth = await getServiceAccountJwtAuth(["https://www.googleapis.com/auth/spreadsheets"]);
+  const auth = getServiceAccountJwtAuth(["https://www.googleapis.com/auth/spreadsheets"]);
   return google.sheets({ version: "v4", auth });
+}
+
+// Google OAuth token endpoint drops connections intermittently with
+// "Premature close" / "ECONNRESET" / "EAI_AGAIN". These are transient and
+// retrying the underlying Sheets call recovers cleanly. Match on the common
+// shapes, not just the message — error chain varies across node-fetch versions.
+function isTransientNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  const code = (err as { code?: string }).code;
+  if (msg.includes("Premature close")) return true;
+  if (msg.includes("ECONNRESET")) return true;
+  if (msg.includes("ETIMEDOUT")) return true;
+  if (msg.includes("EAI_AGAIN")) return true;
+  if (msg.includes("socket hang up")) return true;
+  if (code === "ECONNRESET" || code === "ETIMEDOUT" || code === "EAI_AGAIN") return true;
+  return false;
+}
+
+async function withTransientRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientNetworkError(err) || attempt === MAX_ATTEMPTS) throw err;
+      const delayMs = 250 * 2 ** (attempt - 1); // 250ms, 500ms
+      logger.warn("renewal_sheet_transient_retry", {
+        label, attempt, maxAttempts: MAX_ATTEMPTS, delayMs,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  // Unreachable: last iteration either returns or throws.
+  throw lastErr;
 }
 
 async function ensureRenewalsSheet(): Promise<void> {
@@ -60,22 +99,28 @@ async function ensureRenewalsSheet(): Promise<void> {
   if (!spreadsheetId) throw new Error("MISSING_CONFIG: GOOGLE_SHEETS_SPREADSHEET_ID");
   const sheets = await getSheetsClient();
 
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const meta = await withTransientRetry("ensure_sheet.get", () =>
+    sheets.spreadsheets.get({ spreadsheetId }),
+  );
   const exists = (meta.data.sheets ?? []).some((s) => s.properties?.title === SHEET_NAME);
 
   if (!exists) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: SHEET_NAME } } }],
-      },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `'${SHEET_NAME}'!A1:N1`,
-      valueInputOption: "RAW",
-      requestBody: { values: [RENEWAL_HEADERS as unknown as string[]] },
-    });
+    await withTransientRetry("ensure_sheet.batchUpdate", () =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: SHEET_NAME } } }],
+        },
+      }),
+    );
+    await withTransientRetry("ensure_sheet.headers", () =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${SHEET_NAME}'!A1:N1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [RENEWAL_HEADERS as unknown as string[]] },
+      }),
+    );
   }
 }
 
@@ -103,12 +148,14 @@ export async function appendRenewal(input: RenewalInput): Promise<void> {
     "",
   ];
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `'${SHEET_NAME}'!A1:N1`,
-    valueInputOption: "RAW",
-    requestBody: { values: [row] },
-  });
+  await withTransientRetry("append_renewal", () =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `'${SHEET_NAME}'!A1:N1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [row] },
+    }),
+  );
 }
 
 export async function markRenewalPaid(renewalId: string, paidAt: string): Promise<void> {
@@ -116,10 +163,12 @@ export async function markRenewalPaid(renewalId: string, paidAt: string): Promis
   if (!spreadsheetId) throw new Error("MISSING_CONFIG: GOOGLE_SHEETS_SPREADSHEET_ID");
   const sheets = await getSheetsClient();
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${SHEET_NAME}'!A1:N1000`,
-  });
+  const res = await withTransientRetry("mark_paid.get", () =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${SHEET_NAME}'!A1:N1000`,
+    }),
+  );
   const rows = res.data.values ?? [];
   const dataRows = rows.slice(1);
 
@@ -130,19 +179,21 @@ export async function markRenewalPaid(renewalId: string, paidAt: string): Promis
   const rowNumber = idx + 2;
 
   const existing = dataRows[idx];
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `'${SHEET_NAME}'!K${rowNumber}:N${rowNumber}`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [[
-        "paid",
-        existing[11] ?? "",
-        existing[12] ?? "",
-        paidAt,
-      ]],
-    },
-  });
+  await withTransientRetry("mark_paid.update", () =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${SHEET_NAME}'!K${rowNumber}:N${rowNumber}`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [[
+          "paid",
+          existing[11] ?? "",
+          existing[12] ?? "",
+          paidAt,
+        ]],
+      },
+    }),
+  );
 }
 
 export async function getRenewalBySession(stripeSessionId: string): Promise<RenewalRow | null> {
@@ -150,10 +201,12 @@ export async function getRenewalBySession(stripeSessionId: string): Promise<Rene
   if (!spreadsheetId) throw new Error("MISSING_CONFIG: GOOGLE_SHEETS_SPREADSHEET_ID");
   const sheets = await getSheetsClient();
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${SHEET_NAME}'!A1:N1000`,
-  });
+  const res = await withTransientRetry("get_by_session", () =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${SHEET_NAME}'!A1:N1000`,
+    }),
+  );
   const rows = res.data.values ?? [];
   const dataRows = rows.slice(1);
 

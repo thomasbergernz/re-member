@@ -495,6 +495,68 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-06-23T00:11:39.966Z"
+    },
+    {
+      "id": "bug-031",
+      "timestamp": "2026-06-23T03:10:19.777Z",
+      "error_message": "Missing error handling in function",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:10:19.777Z"
+    },
+    {
+      "id": "bug-032",
+      "timestamp": "2026-06-23T03:11:28.074Z",
+      "error_message": "Type error",
+      "file": "src/lib/renewal-sheet.test.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T03:11:28.074Z"
+    },
+    {
+      "id": "bug-033",
+      "timestamp": "2026-06-23T03:15:00.000Z",
+      "error_message": "Failed to write renewal row: Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "Google OAuth token endpoint drops connections intermittently (~1/100 calls) with Premature close / ECONNRESET / EAI_AGAIN. The transient error was not retried and bubbled to checkout-pm.ts which returned 500 SHEET_WRITE_FAILED to the user. Bug-031 PR #17 wrapped appendRenewal in try/catch but did not address the root cause — only changed the HTTP response surface. The retry belongs inside the Sheets call layer, not at the API endpoint.",
+      "fix": "Added withTransientRetry helper in renewal-sheet.ts: 3 attempts max, exponential backoff 250ms/500ms, retries only on Premature close / ECONNRESET / ETIMEDOUT / EAI_AGAIN / socket hang up. Wrapped all 6 sheets.spreadsheets.* calls (ensureRenewalsSheet: get/batchUpdate/values.update, appendRenewal: values.append, markRenewalPaid: values.get/values.update, getRenewalBySession: values.get). Removed redundant await from getServiceAccountJwtAuth call (constructor is synchronous). Added logger.warn('renewal_sheet_transient_retry') with label/attempt/error for observability. Added 4 unit tests: retry-then-succeed, no-retry-on-non-transient, give-up-after-3, EAI_AGAIN retry.",
+      "tags": [
+        "googleapis",
+        "transient",
+        "retry",
+        "preemptive-close",
+        "econnreset",
+        "eai_again",
+        "renewal",
+        "sheet",
+        "network",
+        "oauth",
+        "staging"
+      ],
+      "related_bugs": [
+        "bug-031"
+      ],
+      "occurrences": 3,
+      "last_seen": "2026-06-23T03:15:00.000Z"
+    }
+  ]
+}
+      "last_seen": "2026-06-23T03:11:28.074Z"
     }
   ]
 }
