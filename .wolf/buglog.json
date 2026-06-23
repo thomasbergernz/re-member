@@ -257,6 +257,94 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-06-23T04:25:00.000Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-06-23T04:34:47.362Z",
+      "error_message": "Missing guard clause",
+      "file": "src/lib/renewal-sheet.ts",
+      "root_cause": "No early return/throw for edge case: !existing",
+      "fix": "Added guard clause: if (!existing)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:34:47.362Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-06-23T04:34:59.361Z",
+      "error_message": "Wrong reference: getRenewalBySession should be getRenewalById",
+      "file": "src/pages/api/stripe-webhook.ts",
+      "root_cause": "Used \"getRenewalBySession\" instead of \"getRenewalById\"",
+      "fix": "Changed getRenewalBySession → getRenewalById",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:34:59.361Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-06-23T04:35:20.501Z",
+      "error_message": "Wrong reference: getRenewalBySession should be getRenewalById",
+      "file": "src/lib/renewal-sheet.test.ts",
+      "root_cause": "Used \"getRenewalBySession\" instead of \"getRenewalById\"",
+      "fix": "Changed getRenewalBySession → getRenewalById",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:35:20.501Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-06-23T04:37:29.469Z",
+      "error_message": "Wrong reference: getRenewalBySession should be getRenewalById",
+      "file": "src/pages/api/stripe-webhook.test.ts",
+      "root_cause": "Used \"getRenewalBySession\" instead of \"getRenewalById\"",
+      "fix": "Changed getRenewalBySession → getRenewalById",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:37:29.469Z"
+    },
+    {
+      "id": "bug-036",
+      "timestamp": "2026-06-23T05:05:00.000Z",
+      "error_message": "Renewals sheet row stuck at payment_status=pending after successful payment; sheet also missing its header row.",
+      "file": "src/pages/api/stripe-webhook.ts, src/lib/renewal-sheet.ts",
+      "root_cause": "(1) Webhook looked up the row via getRenewalBySession(session.id) which matches col L stripe_session — but that column is empty at row creation because appendRenewal runs BEFORE the Stripe Checkout Session exists and nothing backfilled it. Lookup returned null -> renewal_not_found -> markRenewalPaid never ran. (2) ensureRenewalsSheet only wrote headers when it created the sheet; a sheet created by an earlier run where the header write failed (gaxios Premature close, bug-035) was left header-less.",
+      "fix": "(1) Renamed getRenewalBySession -> getRenewalById, match col A renewal_id (present in session.metadata.renewal_id + client_reference_id). markRenewalPaid signature now (renewalId, sessionId, paidAt) and backfills col L stripe_session on payment. Webhook calls getRenewalById(renewalId) + markRenewalPaid(renewalId, session.id, paidAt). (2) ensureRenewalsSheet self-heals: if sheet exists but A1 != header, insertDimension a row at top then write headers without clobbering the existing data row. Commit 2296984. 197/197 tests pass.",
+      "tags": [
+        "renewal",
+        "webhook",
+        "stripe",
+        "sheet",
+        "header",
+        "payment-status",
+        "lookup-key",
+        "self-heal",
+        "solved"
+      ],
+      "related_bugs": [
+        "bug-035"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T05:05:00.000Z"
     }
   ]
 }
