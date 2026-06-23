@@ -206,6 +206,36 @@ const yearDisplay = Number.isFinite(yearNum) && yearNum >= 2024 && yearNum <= 21
         });
         const json = await res.json();
         if (!res.ok) {
+          // SHEET_WRITE_FAILED is transient (gaxios 6.x Premature close on
+          // Google's OAuth token endpoint). The server-side retry already
+          // exhausted its budget; retry from a fresh client context almost
+          // always succeeds because the burst has cleared. Two client-side
+          // retries with backoff handle the rest.
+          if (json.code === "SHEET_WRITE_FAILED" && json.retryable) {
+            const clientRetries = 2;
+            for (let attempt = 1; attempt <= clientRetries; attempt++) {
+              await new Promise((r) => setTimeout(r, 1500 * attempt));
+              try {
+                const retryRes = await fetch("/api/renew/checkout-pm", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify(data),
+                });
+                const retryJson = await retryRes.json();
+                if (retryRes.ok) {
+                  if (retryJson.url) {
+                    window.location.assign(retryJson.url);
+                    return;
+                  }
+                }
+              } catch {
+                // fall through to next attempt
+              }
+            }
+            showError("Network issue with Google Sheets. Please try again in a minute.");
+            setLoading(false);
+            return;
+          }
           showError(json.error ?? `Error ${res.status}`);
           setLoading(false);
           return;

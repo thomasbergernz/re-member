@@ -87,14 +87,40 @@ const yearDisplay = Number.isFinite(yearNum) && yearNum >= 2024 && yearNum <= 21
       if (!firstName || !lastName || !email) { showError("All fields required."); return; }
 
       setLoading(true);
+      const payload = { firstName, lastName, email, year };
       try {
         const res = await fetch("/api/renew/checkout-am", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ firstName, lastName, email, year }),
+          body: JSON.stringify(payload),
         });
         const json = await res.json();
-        if (!res.ok) { showError(json.error ?? `Error ${res.status}`); setLoading(false); return; }
+        if (!res.ok) {
+          // SHEET_WRITE_FAILED is transient (gaxios 6.x Premature close on
+          // Google's OAuth token endpoint). Auto-retry from a fresh client
+          // context — the burst has usually cleared by then.
+          if (json.code === "SHEET_WRITE_FAILED" && json.retryable) {
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              await new Promise((r) => setTimeout(r, 1500 * attempt));
+              try {
+                const retryRes = await fetch("/api/renew/checkout-am", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const retryJson = await retryRes.json();
+                if (retryRes.ok && retryJson.url) {
+                  window.location.assign(retryJson.url);
+                  return;
+                }
+              } catch { /* fall through */ }
+            }
+            showError("Network issue with Google Sheets. Please try again in a minute.");
+            setLoading(false);
+            return;
+          }
+          showError(json.error ?? `Error ${res.status}`); setLoading(false); return;
+        }
         if (json.dryRun) { showError(`Dry-run: price validated (${json.priceId}).`); setLoading(false); return; }
         window.location.assign(json.url);
       } catch (err) {
