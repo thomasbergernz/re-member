@@ -199,6 +199,64 @@
       ],
       "occurrences": 5,
       "last_seen": "2026-06-23T03:57:00.000Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-06-23T04:01:41.496Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/pages/renew/associate.astro",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 16→42 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "astro"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:01:41.496Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-06-23T04:17:25.877Z",
+      "error_message": "Null/undefined access in ",
+      "file": "src/lib/google-auth.ts",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:17:25.877Z"
+    },
+    {
+      "id": "bug-035",
+      "timestamp": "2026-06-23T04:25:00.000Z",
+      "error_message": "Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close — 100% failure on every Google Sheets write (renewal checkout-am/pm AND professional apply) on Fly.",
+      "file": "src/lib/google-auth.ts",
+      "root_cause": "gaxios 6.x (bundled by googleapis/google-auth-library) ships its own node-fetch, which throws Premature close reading the OAuth token response body on Node 22. Deterministic, not transient (the bug-033/034 transient-burst diagnosis was wrong). Proven via fly ssh: raw https.request → STATUS 400 ~300ms; gaxios default → 100% Premature close; gaxios + fetchImplementation:globalThis.fetch → 100% STATUS 400. Affects all endpoints because they share getServiceAccountJwtAuth.",
+      "fix": "Inject Node native fetch (undici) into the JWT auth client transporter in getServiceAccountJwtAuth: client.transporter.defaults.fetchImplementation = globalThis.fetch (guarded for undefined transporter so test mocks do not break). googleapis routes both token fetch and Sheets/Drive data calls through this transporter, so one injection fixes the whole chain. Verified post-deploy: AM checkout returns Stripe URL 5/5, professional apply returns success:true. Commit 6f2593a.",
+      "tags": [
+        "gaxios",
+        "node-fetch",
+        "premature-close",
+        "fetchImplementation",
+        "google-auth",
+        "oauth",
+        "sheets",
+        "root-cause",
+        "solved",
+        "node22"
+      ],
+      "related_bugs": [
+        "bug-033",
+        "bug-034"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T04:25:00.000Z"
     }
   ]
 }
