@@ -89,7 +89,10 @@ function isTransientNetworkError(err: unknown): boolean {
 }
 
 async function withTransientRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  const MAX_ATTEMPTS = 3;
+  // Google OAuth endpoint occasionally bursts of failures lasting ~2-5s.
+  // 5 attempts with 500/1000/2000/4000ms backoff (+jitter) covers those.
+  const MAX_ATTEMPTS = 5;
+  const BASE_DELAYS_MS = [500, 1000, 2000, 4000]; // index = attempt-2 (so attempt 2 waits 500ms, etc.)
   let lastErr: unknown;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -97,7 +100,10 @@ async function withTransientRetry<T>(label: string, fn: () => Promise<T>): Promi
     } catch (err) {
       lastErr = err;
       if (!isTransientNetworkError(err) || attempt === MAX_ATTEMPTS) throw err;
-      const delayMs = 250 * 2 ** (attempt - 1); // 250ms, 500ms
+      const base = BASE_DELAYS_MS[attempt - 2] ?? 4000;
+      // ±20% jitter prevents thundering herd when many requests retry in lockstep.
+      const jitter = Math.floor(base * 0.2 * (Math.random() * 2 - 1));
+      const delayMs = base + jitter;
       logger.warn("renewal_sheet_transient_retry", {
         label, attempt, maxAttempts: MAX_ATTEMPTS, delayMs,
         error: err instanceof Error ? err.message : String(err),

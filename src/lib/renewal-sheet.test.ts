@@ -210,8 +210,10 @@ describe("transient network retry", () => {
     expect(mockAppend).toHaveBeenCalledTimes(1);
   });
 
-  it("gives up on auth refresh after 3 attempts then surfaces error", async () => {
+  it("gives up on auth refresh after 5 attempts then surfaces error", { timeout: 15000 }, async () => {
     mockAuthorize
+      .mockRejectedValueOnce(makeTransientError())
+      .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError());
@@ -223,7 +225,7 @@ describe("transient network retry", () => {
       createdAt: "2026-06-23T10:00:00.000Z",
     })).rejects.toThrow(/Premature close/);
 
-    expect(mockAuthorize).toHaveBeenCalledTimes(3);
+    expect(mockAuthorize).toHaveBeenCalledTimes(5);
     expect(mockAppend).not.toHaveBeenCalled();
   });
 
@@ -256,8 +258,10 @@ describe("transient network retry", () => {
     expect(mockAppend).toHaveBeenCalledTimes(1);
   });
 
-  it("gives up after 3 attempts when transient errors persist", async () => {
+  it("gives up after 5 attempts when transient errors persist", { timeout: 15000 }, async () => {
     mockAppend
+      .mockRejectedValueOnce(makeTransientError())
+      .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError())
       .mockRejectedValueOnce(makeTransientError());
@@ -269,7 +273,7 @@ describe("transient network retry", () => {
       createdAt: "2026-06-23T10:00:00.000Z",
     })).rejects.toThrow(/Premature close/);
 
-    expect(mockAppend).toHaveBeenCalledTimes(3);
+    expect(mockAppend).toHaveBeenCalledTimes(5);
   });
 
   it("retries on EAI_AGAIN (DNS transient)", async () => {
