@@ -12,6 +12,7 @@ import {
 import { appendCheckoutLog } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 import { getApplicantById, markApplicantPaid } from "../../lib/upload-sheet";
+import { getRenewalBySession, markRenewalPaid } from "../../lib/renewal-sheet";
 import { createApplicationReviewDoc, createAssociateApplicationReviewDoc, refreshPmIndexDoc, refreshAmIndexDoc } from "../../lib/google-docs";
 import { sendProfessionalConfirmation, sendProfessionalApplicationNotification, sendAssociateConfirmation, sendAssociateApplicationNotification } from "../../lib/email-sender";
 
@@ -34,6 +35,45 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   log: ReturnType<typeof logger.child>,
 ): Promise<void> {
+  // Renewal flow: one-time payment, no subscription
+  if (session.metadata?.flow === "renewal") {
+    const renewalId = session.metadata?.renewal_id ?? undefined;
+    if (!renewalId) {
+      log.warn("renewal_missing_id", { sessionId: session.id });
+      return;
+    }
+    const renewal = await getRenewalBySession(session.id);
+    if (!renewal) {
+      log.warn("renewal_not_found", { sessionId: session.id, renewalId });
+      return;
+    }
+    if (renewal.paymentStatus === "paid") {
+      log.info("renewal_skip_already_paid", { sessionId: session.id, renewalId });
+      return;
+    }
+    const paidAt = new Date().toISOString();
+    await markRenewalPaid(renewalId, paidAt);
+
+    const sessionCustomerId = typeof session.customer === "string" ? session.customer : "";
+    void appendCheckoutLog({
+      timestamp: paidAt,
+      firstName: renewal.firstName,
+      lastName: renewal.lastName,
+      phone: renewal.phone,
+      email: renewal.email,
+      plan: `renewal_${renewal.tier}`,
+      amountPaid: renewal.amountPaidCents,
+      sessionId: session.id,
+      customerId: sessionCustomerId,
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("renewal_checkout_log_failed", { err: msg, renewalId });
+    });
+
+    log.info("renewal_marked_paid", { renewalId, sessionId: session.id, tier: renewal.tier });
+    return;
+  }
+
   // Only handle Option C flow
   if (session.metadata?.flow !== "option_c") return;
 

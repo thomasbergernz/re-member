@@ -1,4 +1,51 @@
 {
-  "suggestions": [],
-  "generated_at": null
+  "generated_at": "2026-06-21T16:00:33.017Z",
+  "achievements": [
+    "Stripe checkout hardened (PR #14): idempotency key, client_reference_id, pinned apiVersion 2026-02-25.clover in upload-complete, create-professional-checkout, create-checkout-session",
+    "Resume flow persistence hardened: token-first applicant matching, email fallback, autosave serialized client+server, identity fields persisted, GET returns applicantId, case-insensitive flag parsing",
+    "42/42 tests passing on npm run test",
+    "Checkout resilience: 3-attempt exp backoff, Retry-After handling, typed error codes, inline error banner, token survives retries",
+    "Stripe dry-run mode (CHECKOUT_DRY_RUN) validates keys without charging",
+    "OpenWolf memory tracked: .wolf/ directory committed, runtime artifacts untracked",
+    "Professional membership overview doc expanded (+144 lines)",
+    "Staging email subjects prefixed [TESTING]",
+    "DWD impersonation re-pointed to it-admin; Drive/Stripe probe scripts added"
+  ],
+  "improvements": [
+    "Pre-existing type errors in npm run check unaddressed — isolate, fix, add to CI gate",
+    "upload-file.ts is 5466 tok and 9 GET endpoints — split per-doc-type or extract handlers",
+    "professional/apply.astro 20726 tok monolith — extract wizard steps, upload UI, validation into components",
+    "upload-sheet.ts 7879 tok — split form-data writers from Drive file ops, document 47-column contract",
+    "google-docs.ts 6274 tok — split createApplicationReviewDoc from createAssociateApplicationReviewDoc into per-membership modules",
+    "drive-files.ts + upload-sheet.ts duplicate Drive row logic — consolidate Drive file write/read paths",
+    "Replace 121KB HAR file in repo root with .gitignore entry (already added but file still tracked?)",
+    "Add Vitest coverage for checkout resilience path (retry/backoff/Retry-After) — gap likely",
+    "Add structured error code enum shared between client (apply.astro) and server endpoints to prevent stringly-typed drift"
+  ],
+  "next_tasks": [
+    "Run ce-code-review on review/snapshot branch — last pass 0 findings on auto-generated metadata only, but real Stripe hardening landed after",
+    "Land PR #14 to main, replay checkout.session.completed for any payment that hit wrong webhook URL",
+    "Validate staging webhook: curl https://eldaa.fly.dev/api/stripe-webhook with stripe trigger, confirm Sheet1 log row",
+    "Smoke test full apply flow on staging with stripe-listen: upload docs, complete form, pay with test card, verify sheet + Drive + email + review doc all fire",
+    "Run designqc on /professional/apply and /renew/associate (renew checkout pages already have local QA report from 2026-06-09)",
+    "Tighten .gitignore: ensure subscribe.eldaa.org.nz.har, .DS_Store, .data/applicants.json not tracked; run git rm --cached",
+    "Update CLAUDE.md Phase 2 status to reflect checkout hardening (idempotency, pinned apiVersion, dry-run)",
+    "Backfill buglog.json with Stripe hardening work — currently likely missing",
+    "Add post-deploy verification: run .run/smoke-upload-staging.mjs against production webhook after cutover",
+    "Schedule cron to replay stalled resume-link sends (resend-link.ts exists but no scheduler wired)"
+  ],
+  "risks": [
+    "Staging vs production webhook URL divergence (eldaa.fly.dev vs subscribe.eldaa.org.nz) — easy to misconfigure, past payment hit wrong URL per CLAUDE.md note",
+    "Stripe apiVersion pin to 2026-02-25.clover — 4 months stale by current date 2026-06-22, plan upgrade before Stripe deprecates",
+    "47-column Google Sheet schema (A–AU) is the API contract — adding columns breaks existing rows, removing breaks token-based resume",
+    "Soft-delete on Drive Files sheet keeps deleted=TRUE rows forever — no retention policy, sheet will grow unbounded",
+    "Autosave queue per-applicant in-memory in apply.ts — lost on server restart, applicants mid-edit lose unsaved work",
+    "Email sender has hoisted mocks pattern (email-sender.test.ts) — fragile, easy to break on refactor",
+    "DWD impersonation as it-admin@eldaa.org.nz — broad privilege, single point of failure for all Drive access",
+    "121KB HAR file in repo root may leak session tokens if it captured auth headers — must verify untracked/redacted",
+    "resume_token stored in sheet column AG — if sheet access compromised, tokens leak; no expiry, no rotation",
+    "npm run check has pre-existing type errors ignored — drift accumulates, real bugs hide in noise",
+    "Two parallel checkout paths: upload-complete (new) + create-checkout-session (legacy) + create-professional-checkout (legacy) — risk of divergent behavior, single source of truth missing",
+    "renew/associate.astro + renew/pro.astro marked DEPRECATED but still in repo — confused applicants may hit dead flow"
+  ]
 }

@@ -246,6 +246,255 @@
       "related_bugs": [],
       "occurrences": 2,
       "last_seen": "2026-06-16T07:06:26.426Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-06-22T21:25:27.558Z",
+      "error_message": "Significant refactor of ",
+      "file": "../.claude/plans/witty-fluttering-cerf.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→7 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T21:25:27.558Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-06-22T23:05:07.985Z",
+      "error_message": "Incorrect value in code",
+      "file": "src/lib/stripe-products.ts",
+      "root_cause": "Had \"2025-09-30.clover\"",
+      "fix": "Changed to \"2026-02-25.clover\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:05:07.985Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-06-22T23:05:10.019Z",
+      "error_message": "Wrong reference: unit_amount should be INVALID_UNIT_AMOUNT",
+      "file": "src/lib/stripe-products.test.ts",
+      "root_cause": "Used \"unit_amount\" instead of \"INVALID_UNIT_AMOUNT\"",
+      "fix": "Changed unit_amount → INVALID_UNIT_AMOUNT",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:05:10.019Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-06-22T23:14:34.969Z",
+      "error_message": "Missing error handling in function",
+      "file": "src/pages/api/stripe-webhook.ts",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:14:34.969Z"
+    },
+    {
+      "id": "bug-020",
+      "timestamp": "2026-06-22T23:21:50.639Z",
+      "error_message": "Null/undefined access in ",
+      "file": "src/pages/api/stripe-webhook.ts",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:21:50.639Z"
+    },
+    {
+      "id": "bug-021",
+      "timestamp": "2026-06-23T11:25:34.000Z",
+      "error_message": "Cannot access 'mockResolveRenewalPrice' before initialization",
+      "file": "src/pages/api/renew/checkout-pm.test.ts",
+      "root_cause": "vi.mock factory references top-level const variables that haven't been hoisted; vitest hoists vi.mock calls to top of file, so the factory runs before module-level const declarations",
+      "fix": "Wrap mock functions in vi.hoisted(() => ({ ... })) so they're initialized before vi.mock factories run",
+      "tags": [
+        "vitest",
+        "mocking",
+        "hoisting",
+        "tdd",
+        "renewal"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T11:25:34.000Z"
+    },
+    {
+      "id": "bug-022",
+      "timestamp": "2026-06-23T11:26:20.000Z",
+      "error_message": "toHaveBeenCalledWith expected [ObjectContaining] but received [params, options] — 2 args vs 1 matcher",
+      "file": "src/pages/api/renew/checkout-pm.ts",
+      "root_cause": "Vitest 4 strictly compares arg count in toHaveBeenCalledWith. Passing idempotencyKey as 2nd options arg means the mock receives 2 args but the spec test only provides 1 matcher.",
+      "fix": "Embed idempotency_key inside metadata of the params object (Stripe SDK ignores unknown metadata keys) so the call uses a single arg matching the test matcher",
+      "tags": [
+        "vitest",
+        "toHaveBeenCalledWith",
+        "stripe",
+        "idempotency",
+        "renewal"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T11:26:20.000Z"
+    },
+    {
+      "id": "bug-023",
+      "timestamp": "2026-06-22T23:28:55.006Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/pages/api/renew/checkout-pm.test.ts",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→8 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:28:55.006Z"
+    },
+    {
+      "id": "bug-024",
+      "timestamp": "2026-06-23T11:30:00.000Z",
+      "error_message": "Stripe idempotencyKey was moved into metadata.idempotency_key instead of being passed as the 2nd arg to stripe.checkout.sessions.create(); a retried POST could create two Checkout sessions and double-charge the customer",
+      "file": "src/pages/api/renew/checkout-pm.ts",
+      "root_cause": "Implementation was changed to match a one-arg vitest matcher. The implementer dropped the { idempotencyKey } options object and stuffed the key into params.metadata. Stripe SDK uses the 2nd arg of .create() for request-level idempotency — unknown metadata keys are ignored. Original mistake introduced alongside commit 8725e72.",
+      "fix": "Restored 2-arg form: getStripe().checkout.sessions.create(params, { idempotencyKey: `renewal:pm:${renewalId}` }). Removed idempotency_key from metadata. Updated happy-path test to assert both args: toHaveBeenCalledWith(expect.objectContaining({...}), expect.objectContaining({ idempotencyKey: expect.stringMatching(/^renewal:pm:/) })).",
+      "tags": [
+        "stripe",
+        "idempotency",
+        "checkout",
+        "renewal",
+        "correctness",
+        "double-charge",
+        "vitest",
+        "test-matcher-shape"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T11:30:00.000Z"
+    },
+    {
+      "id": "bug-025",
+      "timestamp": "2026-06-22T23:40:06.428Z",
+      "error_message": "Missing guard clause",
+      "file": "src/pages/api/health.test.ts",
+      "root_cause": "No early return/throw for edge case: key === \"pm_renewal_nzd\"",
+      "fix": "Added guard clause: if (key === \"pm_renewal_nzd\")",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-06-22T23:40:17.897Z"
+    },
+    {
+      "id": "bug-026",
+      "timestamp": "2026-06-22T23:40:23.287Z",
+      "error_message": "Missing error handling in function",
+      "file": "src/pages/api/health.ts",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:40:23.287Z"
+    },
+    {
+      "id": "bug-027",
+      "timestamp": "2026-06-22T23:40:29.913Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/pages/api/health.ts",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 33→63 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-22T23:40:29.913Z"
+    },
+    {
+      "id": "bug-028",
+      "timestamp": "2026-06-23T00:09:04.369Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/env.d.ts",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→3 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T00:09:04.369Z"
+    },
+    {
+      "id": "bug-029",
+      "timestamp": "2026-06-23T00:09:34.295Z",
+      "error_message": "Wrong reference: unitAmount should be unit_amount",
+      "file": "src/lib/stripe-products.ts",
+      "root_cause": "Used \"unitAmount\" instead of \"unit_amount\"",
+      "fix": "Changed unitAmount → unit_amount",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T00:09:34.295Z"
+    },
+    {
+      "id": "bug-030",
+      "timestamp": "2026-06-23T00:11:39.966Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-06-23-membership-renewal-form.md",
+      "root_cause": "10 lines replaced/restructured",
+      "fix": "Rewrote 18→20 lines (10 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-23T00:11:39.966Z"
     }
   ]
 }
