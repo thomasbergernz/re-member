@@ -382,3 +382,5 @@
 | 09:45 | Edited src/lib/staging.ts | "https://eldaa.fly.dev" → "https://subscribe-test.el" | ~20 |
 | 09:45 | Edited src/pages/api/stripe-webhook.ts | added 1 import(s) | ~37 |
 | 09:45 | Edited src/pages/api/stripe-webhook.ts | inline fix | ~10 |
+| 09:46 | Session end: 5 writes across 2 files (staging.ts, stripe-webhook.ts) | 3 reads | ~8357 tok |
+| 09:47 | Session end: 5 writes across 2 files (staging.ts, stripe-webhook.ts) | 3 reads | ~8357 tok |
