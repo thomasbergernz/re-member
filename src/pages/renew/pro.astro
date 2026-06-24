@@ -50,9 +50,9 @@ const yearDisplay = Number.isFinite(yearNum) && yearNum >= 2024 && yearNum <= 21
     </section>
 
     <section class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">Professional Development: Record of Learning</h2>
+      <h2 class="text-xl font-semibold mb-4">Professional Development: Record of Learning <span class="text-sm font-normal text-gray-500">(optional at this stage)</span></h2>
       <p class="text-sm text-gray-600 mb-4">
-        It is a requirement for Professional Members of ELDAA to undertake at least 10 hours of Professional Development each year.  Please list all you have done below.  Thank you.
+        Professional Members are required to complete at least 10 hours of PD each year. You can log activities now or use the link emailed after payment to add them later.
       </p>
       <div id="pd-entries" class="space-y-4">
         <div class="pd-row border border-gray-200 rounded-xl p-4" data-row-index="0">
@@ -150,11 +150,17 @@ const yearDisplay = Number.isFinite(yearNum) && yearNum >= 2024 && yearNum <= 21
       const rows = pdEntriesContainer.querySelectorAll(".pd-row");
       const pdEntries: any[] = [];
       rows.forEach((row) => {
+        const dateCompleted = (row.querySelector('input[name="dateCompleted"]') as HTMLInputElement).value;
+        const activity = (row.querySelector('input[name="activity"]') as HTMLInputElement).value.trim();
+        const totalHoursRaw = (row.querySelector('input[name="totalHours"]') as HTMLInputElement).value;
+        const provider = (row.querySelector('input[name="provider"]') as HTMLInputElement).value.trim();
+        // Skip rows where all meaningful fields are blank (row left empty by user)
+        if (!dateCompleted && !activity && !totalHoursRaw) return;
         pdEntries.push({
-          dateCompleted: (row.querySelector('input[name="dateCompleted"]') as HTMLInputElement).value,
-          activity: (row.querySelector('input[name="activity"]') as HTMLInputElement).value,
-          totalHours: Number((row.querySelector('input[name="totalHours"]') as HTMLInputElement).value),
-          provider: (row.querySelector('input[name="provider"]') as HTMLInputElement).value,
+          dateCompleted,
+          activity,
+          totalHours: Number(totalHoursRaw),
+          provider,
         });
       });
       return {
@@ -190,10 +196,9 @@ const yearDisplay = Number.isFinite(yearNum) && yearNum >= 2024 && yearNum <= 21
     proceedBtn.addEventListener("click", async () => {
       errorBanner.classList.add("hidden");
       const data = collectFormData();
-      if (data.pdEntries.length === 0) { showError("Add at least one activity."); return; }
       for (const entry of data.pdEntries) {
         if (!entry.dateCompleted || !entry.activity || !entry.totalHours || entry.totalHours <= 0) {
-          showError("Fill in all activity fields (date, activity, hours)."); return;
+          showError("Fill in all fields for each activity (date, activity, hours)."); return;
         }
       }
       if (!data.firstName || !data.lastName || !data.email) { showError("First name, last name, and email required."); return; }

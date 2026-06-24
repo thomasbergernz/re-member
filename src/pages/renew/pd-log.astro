@@ -1,0 +1,235 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+<BaseLayout title="Professional Development Log — ELDAA">
+  <div class="max-w-3xl mx-auto p-4 sm:p-8">
+
+    <!-- Loading state -->
+    <div id="state-loading" class="text-center py-16 text-gray-500">Loading your record…</div>
+
+    <!-- Error state -->
+    <div id="state-error" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+      <p id="state-error-msg" class="text-amber-800 font-medium"></p>
+    </div>
+
+    <!-- Loaded content -->
+    <div id="state-content" class="hidden">
+      <header class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Professional Development Log</h1>
+        <p id="member-name" class="text-gray-600"></p>
+      </header>
+
+      <section class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-2">Record of Learning</h2>
+        <p class="text-sm text-gray-600 mb-4">
+          Professional Members must complete at least 10 hours of Professional Development each year.
+          Add all activities you have completed and save when done.
+        </p>
+
+        <div id="pd-entries" class="space-y-4"></div>
+
+        <button id="add-row-btn" type="button"
+                class="mt-4 px-4 py-2 border border-blue-600 text-blue-600 rounded-md bg-white text-sm font-medium hover:bg-blue-50">
+          + Add another activity
+        </button>
+      </section>
+
+      <div id="error-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+        <p id="error-message" class="text-amber-800"></p>
+      </div>
+
+      <div id="success-banner" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+        <p class="text-green-800">PD log saved successfully.</p>
+      </div>
+
+      <button id="save-btn" type="button"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
+        <span id="save-spinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+        <span id="save-btn-label">Save PD Log</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const ROW_TEMPLATE = `
+      <div class="pd-row border border-gray-200 rounded-xl p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-medium pd-row-title"></h3>
+          <button type="button" class="remove-row-btn hidden px-2 py-1 border border-amber-700 text-amber-800 rounded text-xs font-medium bg-white">Remove</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Date completed</span>
+            <input type="date" name="dateCompleted" class="w-full mt-1 px-4 py-3 border border-gray-200 rounded-xl text-lg" required />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Activity</span>
+            <input type="text" name="activity" placeholder="e.g. course, webinar, book, PD event"
+                   class="w-full mt-1 px-4 py-3 border border-gray-200 rounded-xl text-lg" required />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Total Hours</span>
+            <input type="number" name="totalHours" min="0.5" step="0.5"
+                   class="w-full mt-1 px-4 py-3 border border-gray-200 rounded-xl text-lg" required />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Provider (if applicable)</span>
+            <input type="text" name="provider" class="w-full mt-1 px-4 py-3 border border-gray-200 rounded-xl text-lg" />
+          </label>
+        </div>
+      </div>`;
+
+    const token = new URLSearchParams(window.location.search).get("token");
+    const stateLoading = document.getElementById("state-loading")!;
+    const stateError = document.getElementById("state-error")!;
+    const stateErrorMsg = document.getElementById("state-error-msg")!;
+    const stateContent = document.getElementById("state-content")!;
+    const memberName = document.getElementById("member-name")!;
+    const pdEntries = document.getElementById("pd-entries")!;
+    const addRowBtn = document.getElementById("add-row-btn")!;
+    const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
+    const saveSpinner = document.getElementById("save-spinner")!;
+    const saveBtnLabel = document.getElementById("save-btn-label")!;
+    const errorBanner = document.getElementById("error-banner")!;
+    const errorMessage = document.getElementById("error-message")!;
+    const successBanner = document.getElementById("success-banner")!;
+
+    function showStateError(msg: string) {
+      stateLoading.classList.add("hidden");
+      stateError.classList.remove("hidden");
+      stateErrorMsg.textContent = msg;
+    }
+
+    function showError(msg: string) {
+      successBanner.classList.add("hidden");
+      errorMessage.textContent = msg;
+      errorBanner.classList.remove("hidden");
+      errorBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function showSuccess() {
+      errorBanner.classList.add("hidden");
+      successBanner.classList.remove("hidden");
+      successBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function refreshRowUi() {
+      const rows = pdEntries.querySelectorAll(".pd-row");
+      rows.forEach((row, i) => {
+        const title = row.querySelector(".pd-row-title") as HTMLElement;
+        if (title) title.textContent = `Activity ${i + 1}`;
+        const btn = row.querySelector(".remove-row-btn") as HTMLButtonElement;
+        if (btn) btn.classList.toggle("hidden", rows.length === 1);
+      });
+    }
+
+    function addRow(data?: { dateCompleted: string; activity: string; totalHours: number; provider: string }) {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = ROW_TEMPLATE;
+      const row = wrapper.firstElementChild as HTMLElement;
+      if (data) {
+        (row.querySelector('input[name="dateCompleted"]') as HTMLInputElement).value = data.dateCompleted;
+        (row.querySelector('input[name="activity"]') as HTMLInputElement).value = data.activity;
+        (row.querySelector('input[name="totalHours"]') as HTMLInputElement).value = String(data.totalHours);
+        (row.querySelector('input[name="provider"]') as HTMLInputElement).value = data.provider ?? "";
+      }
+      row.querySelector(".remove-row-btn")!.addEventListener("click", () => {
+        row.remove();
+        refreshRowUi();
+      });
+      pdEntries.appendChild(row);
+      refreshRowUi();
+    }
+
+    function collectEntries() {
+      return Array.from(pdEntries.querySelectorAll(".pd-row")).map((row) => ({
+        dateCompleted: (row.querySelector('input[name="dateCompleted"]') as HTMLInputElement).value,
+        activity: (row.querySelector('input[name="activity"]') as HTMLInputElement).value,
+        totalHours: Number((row.querySelector('input[name="totalHours"]') as HTMLInputElement).value),
+        provider: (row.querySelector('input[name="provider"]') as HTMLInputElement).value,
+      }));
+    }
+
+    function setSaving(saving: boolean) {
+      saveBtn.disabled = saving;
+      saveBtn.classList.toggle("opacity-70", saving);
+      saveBtn.classList.toggle("cursor-not-allowed", saving);
+      saveSpinner.classList.toggle("hidden", !saving);
+      saveBtnLabel.textContent = saving ? "Saving…" : "Save PD Log";
+    }
+
+    addRowBtn.addEventListener("click", () => {
+      addRow();
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      errorBanner.classList.add("hidden");
+      successBanner.classList.add("hidden");
+
+      const entries = collectEntries();
+      if (entries.length === 0) { showError("Add at least one activity."); return; }
+      for (const e of entries) {
+        if (!e.dateCompleted || !e.activity || !e.totalHours || e.totalHours <= 0) {
+          showError("Fill in all required fields (date, activity, hours) for each row."); return;
+        }
+      }
+
+      setSaving(true);
+      try {
+        const res = await fetch("/api/renew/pd-log", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, entries }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          showError(json.error ?? `Error ${res.status}`);
+          return;
+        }
+        showSuccess();
+      } catch {
+        showError("Network error. Please try again.");
+      } finally {
+        setSaving(false);
+      }
+    });
+
+    // Load on mount
+    (async () => {
+      if (!token) {
+        showStateError("No token provided. Use the link from your renewal confirmation email.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/renew/pd-log?token=${encodeURIComponent(token)}`);
+        const json = await res.json();
+
+        if (res.status === 403) {
+          showStateError("Your payment has not been confirmed yet. Please check back after payment is complete.");
+          return;
+        }
+        if (res.status === 404) {
+          showStateError("Renewal record not found. Please check your link.");
+          return;
+        }
+        if (!res.ok) {
+          showStateError(json.error ?? `Error ${res.status}`);
+          return;
+        }
+
+        memberName.textContent = `${json.firstName} ${json.lastName} — ${json.renewalYear} renewal`;
+        stateLoading.classList.add("hidden");
+        stateContent.classList.remove("hidden");
+
+        if (Array.isArray(json.pdEntries) && json.pdEntries.length > 0) {
+          for (const entry of json.pdEntries) addRow(entry);
+        } else {
+          addRow();
+        }
+      } catch {
+        showStateError("Failed to load your record. Please refresh the page.");
+      }
+    })();
+  </script>
+</BaseLayout>
