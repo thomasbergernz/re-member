@@ -27,7 +27,7 @@ Form-derived cells written by `appendRenewal`:
 
 ## Professional Applications sheet (47 columns)
 
-Form-derived cells (31 of 47) written by `createApplicantRow`. Managed cells (16 of 47): `A applicant_id`, `AH email_hash`, `AI-AO doc counts`, `AP complete`, `AQ stripe_session`, `AR paid`, `AS created_at`, `AT paid_at`, `AU spare`, `AF declaration_signed_at`.
+Form-derived cells (31 of 47) written by `createApplicantRow`. Managed cells (16 of 47): `A applicant_id`, `AH email_hash`, `AI-AO doc counts`, `AP complete`, `AQ stripe_session`, `AR paid`, `AS created_at`, `AT paid_at`, `AU email_verified`, `AF declaration_signed_at`.
 
 See `professionalApply.columnMap` for the field → column mapping (31 entries).
 
