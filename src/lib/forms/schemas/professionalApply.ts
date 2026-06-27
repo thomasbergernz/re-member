@@ -54,10 +54,21 @@ export const COMPETENCY_IDS = [
   "mentorship",
 ] as const;
 
-const YN = [
-  { value: "YES", label: "Yes" },
-  { value: "NO", label: "No" },
-];
+/**
+ * Stable column ids for the 8 independent Further-Requirements questions.
+ * Column N stores `{<id>: "YES"|"NO", ...}` — like COMPETENCY_IDS, the order
+ * + ids are the data contract. Labels live in the content JSON `options` map.
+ */
+export const FURTHER_REQUIREMENT_IDS = [
+  "agreeDoulaServices",
+  "agreeInterview",
+  "commitProfessionalDev",
+  "willInsurance",
+  "listDirectory",
+  "provideCriminalCheck",
+  "attendMeetings",
+  "workRemotely",
+] as const;
 
 export const schema: FormSchema = {
   id: "professionalApply",
@@ -91,6 +102,7 @@ export const schema: FormSchema = {
           contentKey: "training.qualifications",
           serialize: "json",
           minRows: 1,
+          validators: [required],
           itemFields: [
             { name: "name", type: "text", required: true, contentKey: "training.qualifications.name", validators: [required] },
             { name: "provider", type: "text", required: false, contentKey: "training.qualifications.provider" },
@@ -140,26 +152,23 @@ export const schema: FormSchema = {
       ],
     },
 
-    // ── Step 4: Further Requirements (8 Y/N) ──────────────────────────
+    // ── Step 4: Further Requirements (8 independent Y/N) ──────────────
+    // Modeled as a grid (not a single radio) — column N is a JSON OBJECT of
+    // 8 independent yes/no answers per the CLAUDE.md sheet contract, not a
+    // single selection. Mirrors the coreCompetencies grid: each column is one
+    // question, serialized together into one cell. The YES/NO-vs-tick
+    // rendering is a renderer concern handled when the page is wired (Phase C').
     {
       id: "furtherRequirements",
       fields: [
         {
           name: "furtherRequirements",
-          type: "radio",
+          type: "grid",
           required: true,
           contentKey: "furtherRequirements",
           serialize: "json",
-          options: [
-            { value: "agreeDoulaServices", label: "Do you agree to actively provide Doula Services?" },
-            { value: "agreeInterview", label: "Do you agree to an interview by one or more committee members?" },
-            { value: "commitProfessionalDev", label: "Do you agree to submit proof of up to 10 hours of professional development each year?" },
-            { value: "willInsurance", label: "Will you take out professional indemnity insurance? (recommended)" },
-            { value: "listDirectory", label: "Do you wish to be listed as a practicing End of Life Doula in our directory?" },
-            { value: "provideCriminalCheck", label: "Are you willing to provide a current Ministry of Justice criminal record check?" },
-            { value: "attendMeetings", label: "Are you willing to attend regular Re:Member meetings and events?" },
-            { value: "workRemotely", label: "Are you willing to work remotely where there is no other available Professional Member?" },
-          ],
+          validators: [required],
+          columns: FURTHER_REQUIREMENT_IDS.map((id) => ({ name: id, type: "radio" as const })),
         },
       ],
     },
@@ -174,6 +183,7 @@ export const schema: FormSchema = {
           required: true,
           contentKey: "competencies",
           serialize: "json",
+          validators: [required],
           columns: COMPETENCY_IDS.map((id) => ({ name: id, type: "radio" as const })),
         },
       ],

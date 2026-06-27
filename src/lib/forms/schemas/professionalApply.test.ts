@@ -62,6 +62,8 @@ describe("professionalApply schema", () => {
       dateOfBirth: "1990-01-01",
       email: "alice@example.com",
       qualifications: [{ name: "EOL Doula Training", provider: "Hospice NZ", year: 2024 }],
+      furtherRequirements: { agreeDoulaServices: "YES", agreeInterview: "YES" },
+      coreCompetencies: { effectiveCommunication: "YES" },
       referee1Name: "R1",
       referee1Email: "r1@example.com",
       referee2Name: "R2",
@@ -97,8 +99,10 @@ describe("professionalApply schema", () => {
       firstName: "A", lastName: "B", dateOfBirth: "1990-01-01", email: "a@b.com",
     });
     const row = toRow(schema, r.values);
-    // AH (emailHash), AS (created_at), AU paid, AT paid_at, AP complete,
-    // AQ stripe_session, AR paid, AI-AO doc counts
+    // AH (emailHash), AS (created_at), AT paid_at, AU email_verified,
+    // AP complete, AQ stripe_session, AR paid, AI-AO doc counts.
+    // (NB: AU is email_verified per upload-sheet.ts:89 — CLAUDE.md's
+    // "spare/reserved" is stale; the code is the source of truth.)
     const managed = ["AH", "AS", "AT", "AU", "AP", "AQ", "AR", "AI", "AJ", "AK", "AL", "AM", "AN", "AO"];
     managed.forEach((col) => expect(row[col]).toBeUndefined());
   });
