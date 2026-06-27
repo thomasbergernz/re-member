@@ -6,11 +6,11 @@ Use this when introducing a third (or fourth) tier beyond Professional and Assoc
 
 - [ ] **Decide the storage value code.** 2-3 letter code used in the Renewals sheet `tier` column + Stripe `metadata.tier`. Don't collide with `"pm"` or `"am"`. Pick once and treat as immutable.
 - [ ] **Add Stripe products.** One for application, one for renewal. Both annual recurring, NZD. Capture both price IDs.
-- [ ] **Set env vars** (local + Fly secrets):
-  - `STRIPE_PRICE_<TIER>` (application)
-  - `STRIPE_PRICE_<TIER>_RENEWAL` (renewal)
+- [ ] **Set env vars** (local + Fly secrets). The numbering follows the tier definition order in `src/lib/forms/tiers.ts` — if you're adding the 3rd tier, use `STRIPE_PRICE_3` / `STRIPE_PRICE_3_RENEWAL`:
+  - `STRIPE_PRICE_<N>` (application)
+  - `STRIPE_PRICE_<N>_RENEWAL` (renewal)
   - Update `.env.example` to document them.
-- [ ] **Add the tier entry** in `src/lib/forms/tiers.ts`. Use a 2-letter UPPERCASE prefix for env vars (matching existing convention: `STRIPE_PRICE_PROFESSIONAL`).
+- [ ] **Add the tier entry** in `src/lib/forms/tiers.ts`. The tier's index in `TIERS` (1-based) becomes the `N` in the env var names. There is no fixed 2-letter prefix — the numbering is the contract.
 - [ ] **Create the schemas:**
   - `src/lib/forms/schemas/<tier>Apply.{ts,content.json}` — application form
   - `src/lib/forms/schemas/renew<tier>.{ts,content.json}` — renewal form

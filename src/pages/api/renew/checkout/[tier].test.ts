@@ -37,7 +37,7 @@ vi.mock("stripe", () => ({
 }));
 
 process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
-process.env.STRIPE_PRICE_BASIC = "price_basic_75";
+process.env.STRIPE_PRICE_1 = "price_basic_75";
 
 import { POST } from "./[tier]";
 
@@ -159,8 +159,8 @@ describe("checkout/[tier]", () => {
     expect(json.field).toBe("tier");
   });
 
-  it("returns 500 MISSING_CONFIG when STRIPE_PRICE_BASIC missing", async () => {
-    mockResolveRenewalPrice.mockRejectedValueOnce(new Error("MISSING_CONFIG: STRIPE_PRICE_BASIC_RENEWAL not set"));
+  it("returns 500 MISSING_CONFIG when STRIPE_PRICE_1_RENEWAL missing", async () => {
+    mockResolveRenewalPrice.mockRejectedValueOnce(new Error("MISSING_CONFIG: STRIPE_PRICE_1_RENEWAL not set"));
     const response = await call(VALID_BODY, "basic");
     expect(response.status).toBe(500);
     const json = await response.json();

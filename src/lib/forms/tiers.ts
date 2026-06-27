@@ -3,16 +3,33 @@
  *
  * Owns every per-tier value that was previously scattered across:
  *   - `renewal-sheet.ts` (the `tier` enum in `RenewalInput`)
- *   - four env vars (`STRIPE_PRICE_PROFESSIONAL`, `STRIPE_PRICE_ASSOCIATE`,
- *     `STRIPE_PRICE_PROFESSIONAL_RENEWAL`, `STRIPE_PRICE_ASSOCIATE_RENEWAL`)
- *   - two API routes (`checkout-pm.ts` + `checkout-am.ts`)
- *   - two Astro pages (`renew/pro.astro` + `renew/associate.astro`)
+ *   - four env vars (`STRIPE_PRICE_1` / `STRIPE_PRICE_2` for application,
+ *     `STRIPE_PRICE_1_RENEWAL` / `STRIPE_PRICE_2_RENEWAL` for renewal)
+ *   - two API routes (`checkout-pm.ts` + `checkout-am.ts`, now collapsed
+ *     into the dynamic `[tier].ts`)
+ *   - two Astro pages (`renew/pro.astro` + `renew/associate.astro`, now
+ *     collapsed into the dynamic `[tier].astro`)
  *   - the `LookupKey` enum in `stripe-products.ts`
  *
  * Adding a third tier is now one entry here + two schema files
  * (`renew${Tier}.ts` / `apply${Tier}.ts`) + a Stripe price — no API code
- * edits. Caveat: the legacy `getRenewalById` reader defaults unknown
- * values to `"pm"`; it stays as-is until Phase D makes it data-driven.
+ * edits.
+ *
+ * ## Stripe price env-var numbering
+ *
+ * To stay N-tier-ready and avoid semantic drift (BASIC/ADVANCED ≠ student
+ * ≠ premium), price env vars use an **enumerated suffix** keyed to the
+ * tier's position in `TIERS` below.
+ *
+ * | Tier slug | Index N | Application        | Renewal                |
+ * |-----------|---------|--------------------|------------------------|
+ * | `basic`   | 1       | `STRIPE_PRICE_1`   | `STRIPE_PRICE_1_RENEWAL` |
+ * | `advanced`| 2       | `STRIPE_PRICE_2`   | `STRIPE_PRICE_2_RENEWAL` |
+ * | (3rd)     | 3       | `STRIPE_PRICE_3`   | `STRIPE_PRICE_3_RENEWAL` |
+ *
+ * The numbering is fixed by tier definition order in this file. To add a
+ * 3rd tier, append it to `TIERS` and add a matching `STRIPE_PRICE_3` env
+ * var — no other code changes are needed.
  *
  * Two axes, not one (plan finding C1): "tier" and "flow" are orthogonal.
  * The renewal route (one-time payment → 14-col `Renewals` sheet) uses
@@ -56,8 +73,8 @@ export const TIERS = Object.freeze({
     label: "Advanced Membership",
     shortLabel: "Advanced",
     storageValue: "adv",
-    priceEnvVar: "STRIPE_PRICE_ADVANCED",
-    renewalPriceEnvVar: "STRIPE_PRICE_ADVANCED_RENEWAL",
+    priceEnvVar: "STRIPE_PRICE_2",
+    renewalPriceEnvVar: "STRIPE_PRICE_2_RENEWAL",
     applicationSchemaId: "advancedApply",
     renewalSchemaId: "renewAdvanced",
     sheetName: "Advanced Applications",
@@ -68,8 +85,8 @@ export const TIERS = Object.freeze({
     label: "Basic Membership",
     shortLabel: "Basic",
     storageValue: "basic",
-    priceEnvVar: "STRIPE_PRICE_BASIC",
-    renewalPriceEnvVar: "STRIPE_PRICE_BASIC_RENEWAL",
+    priceEnvVar: "STRIPE_PRICE_1",
+    renewalPriceEnvVar: "STRIPE_PRICE_1_RENEWAL",
     applicationSchemaId: "basicApply",
     renewalSchemaId: "renewBasic",
     sheetName: "Basic Applications",

@@ -12,12 +12,12 @@ describe("TIERS", () => {
   });
 
   it("wires up env var + schema ids for each tier", () => {
-    expect(getTier("advanced").priceEnvVar).toBe("STRIPE_PRICE_ADVANCED");
-    expect(getTier("advanced").renewalPriceEnvVar).toBe("STRIPE_PRICE_ADVANCED_RENEWAL");
+    expect(getTier("advanced").priceEnvVar).toBe("STRIPE_PRICE_2");
+    expect(getTier("advanced").renewalPriceEnvVar).toBe("STRIPE_PRICE_2_RENEWAL");
     expect(getTier("advanced").applicationSchemaId).toBe("advancedApply");
     expect(getTier("advanced").renewalSchemaId).toBe("renewAdvanced");
-    expect(getTier("basic").priceEnvVar).toBe("STRIPE_PRICE_BASIC");
-    expect(getTier("basic").renewalPriceEnvVar).toBe("STRIPE_PRICE_BASIC_RENEWAL");
+    expect(getTier("basic").priceEnvVar).toBe("STRIPE_PRICE_1");
+    expect(getTier("basic").renewalPriceEnvVar).toBe("STRIPE_PRICE_1_RENEWAL");
   });
 
   it("is frozen at the top level", () => {

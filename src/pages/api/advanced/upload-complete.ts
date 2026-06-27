@@ -73,13 +73,13 @@ export const POST: APIRoute = async ({ request, url }) => {
   const stripe = new Stripe(secretKey, { apiVersion: "2026-02-25.clover" });
   const dryRun = isCheckoutDryRunEnabled();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
-  const recurringPriceId = process.env.STRIPE_PRICE_ADVANCED?.trim();
+  const recurringPriceId = process.env.STRIPE_PRICE_2?.trim();
   const billingCycleAnchor = getNextJulyAnchorEpoch();
   const siteBaseUrl = getSiteBaseUrl(url.href);
 
   if (!recurringPriceId) {
     return Response.json(
-      { error: "Server is missing STRIPE_PRICE_ADVANCED.", code: "MISSING_CONFIG" },
+      { error: "Server is missing STRIPE_PRICE_2.", code: "MISSING_CONFIG" },
       { status: 500 }
     );
   }

@@ -2,7 +2,7 @@
 
 Membership + onboarding + renewal stack for volunteer-run orgs. Stripe-backed. Sheets-as-DB. Built for not-for-profits and small membership clubs whose admin time is precious and whose treasurer shouldn't spend weekends chasing forms and receipts.
 
-> **Before deploying:** read [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). The blueprint ships with sample form content from a single professional-membership org; you must replace it before real applicants.
+> **Before deploying:** the full deployment playbook is in [`docs/DEPLOY.md`](docs/DEPLOY.md) — 15 phases covering GCP, Workspace, Stripe, Mailgun, Fly, Cloudflare Worker, GitHub Actions, and per-tier form configuration. The legacy pre-deployment checklist is still in [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md); the playbook supersedes it for new deployments.
 
 ## What it does
 
@@ -67,15 +67,19 @@ No-CMS. Sheets-as-DB. Drive-as-DMS. Volunteer admin runs it from the spreadsheet
 4. Run locally: `npm run dev`
 5. Run tests: `npm run test`
 
+**Production deployment:** see [`docs/DEPLOY.md`](docs/DEPLOY.md) — full 15-phase playbook from clone to production smoke test.
+
 ## Environment
 
 ### Stripe
 - `STRIPE_SECRET_KEY` — secret key for the env (`sk_test_…` / `sk_live_…`)
 - `STRIPE_WEBHOOK_SECRET` — webhook signing secret (required, even in `CHECKOUT_DRY_RUN`)
-- `STRIPE_PRICE_PROFESSIONAL` — Pro tier price ID
-- `STRIPE_PRICE_ASSOCIATE` — Associate tier price ID
-- `STRIPE_PRICE_PROFESSIONAL_RENEWAL` — Pro renewal price ID
-- `STRIPE_PRICE_ASSOCIATE_RENEWAL` — Associate renewal price ID
+- `STRIPE_PRICE_1` — Application price for tier index 1 (basic)
+- `STRIPE_PRICE_2` — Application price for tier index 2 (advanced)
+- `STRIPE_PRICE_1_RENEWAL` — Renewal price for tier index 1 (basic)
+- `STRIPE_PRICE_2_RENEWAL` — Renewal price for tier index 2 (advanced)
+
+See `src/lib/forms/tiers.ts` for the N → tier-slug mapping.
 
 ### Mailgun (transactional email)
 - `MAILGUN_API_KEY` — private API key (`key-…`)
