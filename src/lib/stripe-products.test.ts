@@ -19,14 +19,14 @@ describe("resolveRenewalPrice", () => {
   });
 
   afterEach(() => {
-    delete process.env.STRIPE_PRICE_ADVANCED;
-    delete process.env.STRIPE_PRICE_BASIC;
-    delete process.env.STRIPE_PRICE_ADVANCED_RENEWAL;
-    delete process.env.STRIPE_PRICE_BASIC_RENEWAL;
+    delete process.env.STRIPE_PRICE_1;
+    delete process.env.STRIPE_PRICE_2;
+    delete process.env.STRIPE_PRICE_1_RENEWAL;
+    delete process.env.STRIPE_PRICE_2_RENEWAL;
   });
 
   it("returns price config when Stripe returns active NZD price", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_1TTFkhCi50x7UA8b51G5y4TQ";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_1TTFkhCi50x7UA8b51G5y4TQ";
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_1TTFkhCi50x7UA8b51G5y4TQ",
       currency: "nzd",
@@ -39,12 +39,12 @@ describe("resolveRenewalPrice", () => {
     expect(mockPricesRetrieve).toHaveBeenCalledWith("price_1TTFkhCi50x7UA8b51G5y4TQ");
   });
 
-  it("throws MISSING_CONFIG when STRIPE_PRICE_ADVANCED_RENEWAL env var missing", async () => {
+  it("throws MISSING_CONFIG when STRIPE_PRICE_2_RENEWAL env var missing", async () => {
     await expect(resolveRenewalPrice("adv_renewal_nzd")).rejects.toThrow(/MISSING_CONFIG/);
   });
 
   it("throws PRICE_INACTIVE when price is not active", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_xxx";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_xxx";
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_xxx", currency: "nzd", unit_amount: 15000, active: false,
     });
@@ -52,13 +52,13 @@ describe("resolveRenewalPrice", () => {
   });
 
   it("throws PRICE_RETRIEVE_FAILED when Stripe throws on retrieve", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_missing";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_missing";
     mockPricesRetrieve.mockRejectedValueOnce(new Error("No such price"));
     await expect(resolveRenewalPrice("adv_renewal_nzd")).rejects.toThrow(/PRICE_RETRIEVE_FAILED/);
   });
 
   it("throws INVALID_CURRENCY when price currency is not NZD", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_usd";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_usd";
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_usd", currency: "usd", unit_amount: 15000, active: true,
     });
@@ -66,7 +66,7 @@ describe("resolveRenewalPrice", () => {
   });
 
   it("throws INVALID_UNIT_AMOUNT when unit_amount is null", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_zero";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_zero";
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_zero", currency: "nzd", unit_amount: null, active: true,
     });
@@ -74,7 +74,7 @@ describe("resolveRenewalPrice", () => {
   });
 
   it("caches the resolved price for subsequent calls within TTL", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_pm";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_pm";
     mockPricesRetrieve.mockResolvedValue({
       id: "price_pm", currency: "nzd", unit_amount: 15000, active: true,
     });
@@ -84,8 +84,8 @@ describe("resolveRenewalPrice", () => {
     expect(mockPricesRetrieve).toHaveBeenCalledTimes(1);
   });
 
-  it("uses STRIPE_PRICE_BASIC_RENEWAL for Basic lookup_key", async () => {
-    process.env.STRIPE_PRICE_BASIC_RENEWAL = "price_1TTFjrCi50x7UA8b6rursmWq";
+  it("uses STRIPE_PRICE_1_RENEWAL for Basic lookup_key", async () => {
+    process.env.STRIPE_PRICE_1_RENEWAL = "price_1TTFjrCi50x7UA8b6rursmWq";
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_1TTFjrCi50x7UA8b6rursmWq", currency: "nzd", unit_amount: 7500, active: true,
     });
@@ -96,7 +96,7 @@ describe("resolveRenewalPrice", () => {
   });
 
   it("invalidateRenewalPriceCache clears the cache", async () => {
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_pm";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_pm";
     mockPricesRetrieve.mockResolvedValue({
       id: "price_pm", currency: "nzd", unit_amount: 15000, active: true,
     });
@@ -112,11 +112,11 @@ describe("resolveRenewalPriceByTier (Phase D)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateRenewalPriceCache();
-    process.env.STRIPE_PRICE_ADVANCED_RENEWAL = "price_pm_150";
-    process.env.STRIPE_PRICE_BASIC_RENEWAL = "price_am_75";
+    process.env.STRIPE_PRICE_2_RENEWAL = "price_pm_150";
+    process.env.STRIPE_PRICE_1_RENEWAL = "price_am_75";
   });
 
-  it("reads STRIPE_PRICE_ADVANCED for tier=advanced", async () => {
+  it("reads STRIPE_PRICE_2_RENEWAL for tier=advanced", async () => {
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_pm_150", currency: "nzd", unit_amount: 15000, active: true,
     });
@@ -126,7 +126,7 @@ describe("resolveRenewalPriceByTier (Phase D)", () => {
     expect(mockPricesRetrieve).toHaveBeenCalledWith("price_pm_150");
   });
 
-  it("reads STRIPE_PRICE_BASIC for tier=basic", async () => {
+  it("reads STRIPE_PRICE_1_RENEWAL for tier=basic", async () => {
     mockPricesRetrieve.mockResolvedValueOnce({
       id: "price_am_75", currency: "nzd", unit_amount: 7500, active: true,
     });
@@ -140,7 +140,7 @@ describe("resolveRenewalPriceByTier (Phase D)", () => {
   });
 
   it("throws MISSING_CONFIG when the tier's renewalPriceEnvVar is unset", async () => {
-    delete process.env.STRIPE_PRICE_BASIC_RENEWAL;
-    await expect(resolveRenewalPriceByTier("basic")).rejects.toThrow(/MISSING_CONFIG: STRIPE_PRICE_BASIC_RENEWAL/);
+    delete process.env.STRIPE_PRICE_1_RENEWAL;
+    await expect(resolveRenewalPriceByTier("basic")).rejects.toThrow(/MISSING_CONFIG: STRIPE_PRICE_1_RENEWAL/);
   });
 });

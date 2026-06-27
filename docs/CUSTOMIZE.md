@@ -71,10 +71,10 @@ exact column letters — the code reads positionally.
 |---------|---------|
 | `STRIPE_SECRET_KEY` | `sk_test_…` for staging, `sk_live_…` for prod |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret from `stripe listen` or Dashboard |
-| `STRIPE_PRICE_PROFESSIONAL` | Price ID for the Pro tier |
-| `STRIPE_PRICE_ASSOCIATE` | Price ID for the Associate tier |
-| `STRIPE_PRICE_PROFESSIONAL_RENEWAL` | Pro renewal price |
-| `STRIPE_PRICE_ASSOCIATE_RENEWAL` | Associate renewal price |
+| `STRIPE_PRICE_1` | Price ID for tier index 1 (basic) — see `src/lib/forms/tiers.ts` for the N → tier mapping |
+| `STRIPE_PRICE_2` | Price ID for tier index 2 (advanced) |
+| `STRIPE_PRICE_1_RENEWAL` | Renewal price for tier index 1 (basic) |
+| `STRIPE_PRICE_2_RENEWAL` | Renewal price for tier index 2 (advanced) |
 
 Webhook endpoints (configure in Stripe Dashboard):
 - Staging: `https://your-app-staging.fly.dev/api/stripe-webhook`
