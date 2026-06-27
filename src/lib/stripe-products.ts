@@ -38,7 +38,7 @@ function getStripe(): Stripe {
 function getPriceEnvVar(lookupKey: LookupKey): string | undefined {
   const storageValue = lookupKey.replace(/_renewal_nzd$/, "");
   for (const t of listTiers()) {
-    if (t.storageValue === storageValue) return process.env[t.priceEnvVar];
+    if (t.storageValue === storageValue) return process.env[t.renewalPriceEnvVar];
   }
   return undefined;
 }

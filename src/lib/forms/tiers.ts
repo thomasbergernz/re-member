@@ -50,7 +50,7 @@ export interface TierConfig {
   renewalSheetName: string;
 }
 
-export const TIERS: Readonly<Record<string, TierConfig>> = Object.freeze({
+export const TIERS = Object.freeze({
   advanced: {
     slug: "advanced",
     label: "Advanced Membership",
@@ -75,7 +75,7 @@ export const TIERS: Readonly<Record<string, TierConfig>> = Object.freeze({
     sheetName: "Basic Applications",
     renewalSheetName: "Renewals",
   },
-});
+} as const);
 
 export class UnknownTierError extends Error {
   constructor(slug: string) {
@@ -85,11 +85,11 @@ export class UnknownTierError extends Error {
 }
 
 export function getTier(slug: string): TierConfig {
-  const tier = TIERS[slug];
+  const tier = (TIERS as Record<string, TierConfig>)[slug];
   if (!tier) throw new UnknownTierError(slug);
   return tier;
 }
 
 export function listTiers(): TierConfig[] {
-  return Object.values(TIERS);
+  return Object.values(TIERS) as TierConfig[];
 }

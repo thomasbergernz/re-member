@@ -145,15 +145,13 @@ export function validate(schema: FormSchema, body: unknown): ValidationResult {
 
     // Implicit required: safety net for `required: true` paired with format-only
     // validators (email/phone/minLength/regex/etc.) that pass through blank
-    // input. Skipped when an explicit blank-rejecting validator is already in
-    // the array — that validator's message wins.
+    // input. Skipped only when an explicit blank-REJECTING validator is in the
+    // array (`required`/`ynRadio`). Format-only validators like `conditional`
+    // and `jsonArray` return null on blank and do not count — including them
+    // would silently drop the required constraint for blank inputs.
     if (field.required && isBlank(value)) {
       const hasBlankRejector = validators.some(
-        (v) =>
-          v.kind === "required" ||
-          v.kind === "conditional" ||
-          v.kind === "ynRadio" ||
-          v.kind === "jsonArray",
+        (v) => v.kind === "required" || v.kind === "ynRadio",
       );
       if (!hasBlankRejector) {
         errors[path] = field.requiredMessage ?? "Required";

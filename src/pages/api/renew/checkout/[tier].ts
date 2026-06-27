@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import Stripe from "stripe";
-import { resolveRenewalPrice } from "../../../../lib/stripe-products";
+import { resolveRenewalPrice, type LookupKey } from "../../../../lib/stripe-products";
 import { appendRenewal, type PdEntry } from "../../../../lib/renewal-sheet";
 import {
   getSiteBaseUrl,
@@ -11,13 +11,13 @@ import { validateTier } from "../../../../lib/forms/runtime";
 import { getTier } from "../../../../lib/forms/tiers";
 
 /**
- * Tier → Stripe renewal lookup-key map. Hardcoded for B2 (Associate only);
- * Phase D derives this from TIERS + the renewal price env vars.
+ * Derive the Stripe renewal lookup key from the tier config. Adding a tier
+ * to TIERS automatically extends this — no code edit required (Phase D).
  */
-const TIER_LOOKUP_KEY: Record<string, `${string}_renewal_nzd`> = {
-  basic: "basic_renewal_nzd",
-  advanced: "adv_renewal_nzd",
-};
+function lookupKeyForTier(tierSlug: string): LookupKey {
+  const tier = getTier(tierSlug);
+  return `${tier.storageValue}_renewal_nzd` as LookupKey;
+}
 
 function coercePdEntries(raw: unknown): PdEntry[] {
   if (!Array.isArray(raw)) return [];
@@ -67,8 +67,7 @@ export const POST: APIRoute = async ({ request, params }) => {
   try { tierConfig = getTier(tierSlug); }
   catch { return badRequest("tier", `Unknown tier: ${tierSlug}`); }
 
-  const lookupKey = TIER_LOOKUP_KEY[tierSlug];
-  if (!lookupKey) return badRequest("tier", `No Stripe renewal price mapped for tier: ${tierSlug}`);
+  const lookupKey = lookupKeyForTier(tierSlug);
 
   let body: unknown;
   try { body = await request.json(); }
