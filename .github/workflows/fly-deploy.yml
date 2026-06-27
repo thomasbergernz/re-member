@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     concurrency: deploy-production
+    # Self-disable until Phase 10 sets the secret.
+    if: ${{ secrets.FLY_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
         with:

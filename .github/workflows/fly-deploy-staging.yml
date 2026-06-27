@@ -8,6 +8,9 @@ jobs:
     name: Deploy staging
     runs-on: ubuntu-latest
     concurrency: deploy-staging
+    # Self-disable until Phase 10 sets the secret. Prevents failed-run spam
+    # on a freshly-forked repo where FLY_API_TOKEN is not yet populated.
+    if: ${{ secrets.FLY_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
       - uses: superfly/flyctl-actions/setup-flyctl@master
