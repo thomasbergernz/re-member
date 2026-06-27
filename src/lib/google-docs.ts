@@ -411,7 +411,7 @@ function buildContent(applicant: ApplicantInfo, driveFiles: DriveFile[]) {
   return requests;
 }
 
-export async function createApplicationReviewDoc(
+export async function createAdvancedApplicationReviewDoc(
   applicant: ApplicantInfo
 ): Promise<string> {
   const docs = getDocsClient();

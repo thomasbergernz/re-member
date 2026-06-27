@@ -297,7 +297,7 @@ async function handleCheckoutCompleted(
 
   // Create a Google Doc review document for professional applications
   if (plan === "advanced" && applicantId && advancedApplicant) {
-    createAdvancedApplicationReviewDoc(advancedApplicant).then(async (docUrl) => {
+    createAdvancedApplicationReviewDoc(advancedApplicant).then(async (docUrl: string) => {
       const membershipEmail = process.env.SUPPORT_EMAIL?.trim() || "membership@example.com";
       const applicantFullName = `${advancedApplicant.firstName} ${advancedApplicant.lastName}`;
       sendAdvancedApplicationNotification(membershipEmail, applicantFullName, docUrl, applicantId).catch((err) => {
@@ -313,7 +313,7 @@ async function handleCheckoutCompleted(
         const msg = err instanceof Error ? err.message : String(err);
         log.error("checkout_completed.pm_index_refresh_failed", { applicantId, sessionId: session.id, error: msg });
       });
-    }).catch((err) => {
+    }).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("checkout_completed.review_doc_failed", {
         applicantId,

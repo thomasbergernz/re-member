@@ -116,7 +116,12 @@ export function attachRepeatable(container: HTMLElement): void {
       row.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
         "input, textarea, select",
       ).forEach((el) => {
-        if (el.name) el.name = el.name.replace(/\.\[ROW\]/g, `.${idx}`);
+        if (!el.name) return;
+        // Replace the template placeholder AND any existing numeric suffix so
+        // deletions leave a dense, zero-indexed name array. Without this,
+        // deleting row 0 would leave `.1`/`.2` in place and the server would
+        // see a sparse array with a hole at index 0.
+        el.name = el.name.replace(/\.\[ROW\]/g, `.${idx}`).replace(/\.\d+(?=\b|$)/g, `.${idx}`);
       });
     });
     rowCount = rows.length;
