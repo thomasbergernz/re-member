@@ -10,8 +10,10 @@ Verify: `git remote -v` shows the client's fork as `origin`, the blueprint upstr
 
 ## 2. Fly API token
 
+`fly auth token` is deprecated as of `flyctl` 0.3.x. Use `fly tokens create org` instead — produces an org-scoped token that can't impersonate other orgs' apps.
+
 ```sh
-fly auth token
+fly tokens create org <org-slug>
 # Output: Fo1_xxxxxxxxxxxxxxxxxxxxx...
 ```
 
@@ -74,7 +76,7 @@ Expect: green run, new staging image pushed to Fly.
 
 | Issue | Fix |
 |---|---|
-| `FLY_API_TOKEN` expired | `fly auth token` → update GH secret → re-run workflow |
+| `FLY_API_TOKEN` expired | `fly tokens create org <org>` → update GH secret → re-run workflow |
 | `REMEMBER_HEALTH_CHECK_TOKEN` rotated | update Worker `CHECK_TOKEN` (Phase 8) + GH secret to the same new value |
 | Production deploy blocked | approve the environment in GH Actions UI, or remove required reviewers |
 | Staging deploy broken | check `gh run logs --job=<id>` — most common cause is missing `FLY_API_TOKEN` |

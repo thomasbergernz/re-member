@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { getTier, listTiers, UnknownTierError } from "./forms/tiers";
+import { CURRENCY } from "./config";
 
 /**
  * Phase K: LookupKey is now derived from any TierConfig's storageValue
@@ -68,8 +69,8 @@ export async function resolveRenewalPrice(
   if (!price.active) {
     throw new Error(`PRICE_INACTIVE: price ${priceId} is not active`);
   }
-  if (price.currency !== "nzd") {
-    throw new Error(`INVALID_CURRENCY: price for ${lookupKey} returned currency=${price.currency}, expected nzd`);
+  if (price.currency !== CURRENCY) {
+    throw new Error(`INVALID_CURRENCY: price for ${lookupKey} returned currency=${price.currency}, expected ${CURRENCY}`);
   }
   if (price.unit_amount === null || price.unit_amount === undefined) {
     throw new Error(`INVALID_UNIT_AMOUNT: price for ${lookupKey} returned unit_amount=${price.unit_amount}`);
@@ -120,8 +121,8 @@ export async function resolveRenewalPriceByTier(
   if (!price.active) {
     throw new Error(`PRICE_INACTIVE: price ${priceId} is not active`);
   }
-  if (price.currency !== "nzd") {
-    throw new Error(`INVALID_CURRENCY: price for tier ${tierSlug} returned currency=${price.currency}, expected nzd`);
+  if (price.currency !== CURRENCY) {
+    throw new Error(`INVALID_CURRENCY: price for tier ${tierSlug} returned currency=${price.currency}, expected ${CURRENCY}`);
   }
   if (price.unit_amount === null || price.unit_amount === undefined) {
     throw new Error(`INVALID_UNIT_AMOUNT: price for tier ${tierSlug} returned unit_amount=${price.unit_amount}`);

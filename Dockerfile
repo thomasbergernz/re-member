@@ -3,8 +3,10 @@ WORKDIR /app
 
 # Install dependencies
 FROM base AS deps
-COPY package.json ./
-RUN npm install
+# Copy the lockfile and use `npm ci` for reproducible, lockfile-pinned installs
+# (npm install would re-resolve ^ ranges and could pull untested versions).
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Build
 FROM deps AS build

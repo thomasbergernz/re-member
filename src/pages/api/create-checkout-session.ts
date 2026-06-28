@@ -6,12 +6,13 @@ import {
   calcFirstTermAmount,
   formatAmountNzd,
   isCheckoutDryRunEnabled,
-  getNextJulyAnchorEpoch,
+  getNextRenewalAnchorEpoch,
   getPriceForPlan,
   getSiteBaseUrl,
   type MembershipPlan,
 } from "../../lib/stripe-checkout";
 import { appendBasicApplication } from "../../lib/google-sheets";
+import { CURRENCY, formatAnchorDate } from "../../lib/config";
 import { logger } from "../../lib/logger";
 import { validateTier } from "../../lib/forms/runtime";
 import { getTier } from "../../lib/forms/tiers";
@@ -133,7 +134,7 @@ export const POST: APIRoute = async ({ request }) => {
   const dryRun = isCheckoutDryRunEnabled();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   const recurringPriceId = getPriceForPlan(plan);
-  const billingCycleAnchor = getNextJulyAnchorEpoch();
+  const billingCycleAnchor = getNextRenewalAnchorEpoch();
   const siteBaseUrl = getSiteBaseUrl(request.url);
   if (!recurringPriceId) {
     return Response.json(
@@ -150,9 +151,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const recurringPrice = await stripe.prices.retrieve(recurringPriceId);
-  if (recurringPrice.currency !== "nzd" || !recurringPrice.unit_amount) {
+  if (recurringPrice.currency !== CURRENCY || !recurringPrice.unit_amount) {
     return Response.json(
-      { error: "Recurring price must be a fixed NZD amount." },
+      { error: `Recurring price must be a fixed ${CURRENCY.toUpperCase()} amount.` },
       { status: 500 },
     );
   }
@@ -167,7 +168,7 @@ export const POST: APIRoute = async ({ request }) => {
     : calcFirstTermAmount(annualAmount);
   const proratedFirstTerm = firstTermAmount !== annualAmount;
 
-  const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
+  const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting ${formatAnchorDate()}.`;
   const basicApplicationId = isBasicApply ? crypto.randomUUID() : "";
 
   if (dryRun) {
@@ -207,7 +208,7 @@ export const POST: APIRoute = async ({ request }) => {
       {
         quantity: 1,
         price_data: {
-          currency: "nzd",
+          currency: CURRENCY,
           unit_amount: firstTermAmount,
           product_data: {
             // Phase K: tier label resolved via getTier (single source of truth
@@ -279,8 +280,12 @@ export const POST: APIRoute = async ({ request }) => {
         checkoutStatus: "checkout_requested",
       });
     }
+    // Include firstTermAmount in the key: the prorated amount shrinks each
+    // week toward July 1, so a static key would make a return visit in a
+    // later week collide with Stripe's idempotency cache (same key, different
+    // unit_amount → hard idempotency-conflict error).
     const session = await stripe.checkout.sessions.create(params, {
-      idempotencyKey: `checkout:${plan}:${email}`,
+      idempotencyKey: `checkout:${plan}:${email}:${firstTermAmount}`,
     });
 
     logger.info("checkout_session.created", {

@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { getServiceAccountJwtAuth } from "./google-auth";
 import { logger } from "./logger";
 import { listTiers } from "./forms/tiers";
+import { CURRENCY } from "./config";
 
 export interface PdEntry {
   dateCompleted: string;
@@ -348,7 +349,7 @@ export async function getRenewalById(renewalId: string): Promise<RenewalRow | nu
     phone: match[6] ?? "",
     pdEntries,
     amountPaidCents: Number(match[8] ?? 0),
-    currency: match[9] ?? "nzd",
+    currency: match[9] ?? CURRENCY,
     paymentStatus: (match[10] === "paid" ? "paid" : "pending"),
     stripeSession: match[11] ?? "",
     createdAt: match[12] ?? "",

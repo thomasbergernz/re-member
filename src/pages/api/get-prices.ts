@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import Stripe from "stripe";
 import { formatAmountNzd, getPriceForPlan, type MembershipPlan } from "../../lib/stripe-checkout";
+import { CURRENCY } from "../../lib/config";
 import { logger } from "../../lib/logger";
 
 type PriceInfo = {
@@ -30,7 +31,7 @@ export const GET: APIRoute = async ({ request }) => {
 
     try {
       const price = await stripe.prices.retrieve(priceId);
-      if (price.currency === "nzd" && price.unit_amount) {
+      if (price.currency === CURRENCY && price.unit_amount) {
         prices[plan] = {
           amount: price.unit_amount,
           formatted: formatAmountNzd(price.unit_amount),

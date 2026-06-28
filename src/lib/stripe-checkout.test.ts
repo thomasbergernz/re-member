@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { DateTime } from "luxon";
 import {
   isPromoWindowNz,
-  getNextJulyAnchorDate,
-  getNextJulyAnchorEpoch,
+  getNextRenewalAnchorDate,
+  getNextRenewalAnchorEpoch,
   formatAmountNzd,
   calcFirstTermAmount,
 } from "./stripe-checkout";
@@ -32,30 +32,30 @@ describe("isPromoWindowNz", () => {
   });
 });
 
-describe("getNextJulyAnchorDate", () => {
+describe("getNextRenewalAnchorDate", () => {
   it("returns this year's July 1 when before July", () => {
-    const result = getNextJulyAnchorDate(dt("2026-03-15T12:00:00", NZ));
+    const result = getNextRenewalAnchorDate(dt("2026-03-15T12:00:00", NZ));
     expect(result.year).toBe(2026);
     expect(result.month).toBe(7);
     expect(result.day).toBe(1);
   });
 
   it("returns next year's July 1 when on July 1", () => {
-    const result = getNextJulyAnchorDate(dt("2026-07-01T00:00:00", NZ));
+    const result = getNextRenewalAnchorDate(dt("2026-07-01T00:00:00", NZ));
     expect(result.year).toBe(2027);
     expect(result.month).toBe(7);
     expect(result.day).toBe(1);
   });
 
   it("returns next year's July 1 when in December", () => {
-    const result = getNextJulyAnchorDate(dt("2026-12-15T12:00:00", NZ));
+    const result = getNextRenewalAnchorDate(dt("2026-12-15T12:00:00", NZ));
     expect(result.year).toBe(2027);
     expect(result.month).toBe(7);
     expect(result.day).toBe(1);
   });
 
   it("returns a Luxon DateTime at midnight NZ time", () => {
-    const result = getNextJulyAnchorDate(dt("2026-03-15T15:30:00", "UTC"));
+    const result = getNextRenewalAnchorDate(dt("2026-03-15T15:30:00", "UTC"));
     expect(result.hour).toBe(0);
     expect(result.minute).toBe(0);
     expect(result.second).toBe(0);
@@ -63,15 +63,15 @@ describe("getNextJulyAnchorDate", () => {
   });
 });
 
-describe("getNextJulyAnchorEpoch", () => {
+describe("getNextRenewalAnchorEpoch", () => {
   it("returns a Unix timestamp for July 1 in NZ", () => {
-    const epoch = getNextJulyAnchorEpoch(dt("2026-03-15T12:00:00", NZ));
+    const epoch = getNextRenewalAnchorEpoch(dt("2026-03-15T12:00:00", NZ));
     const expected = DateTime.fromISO("2026-07-01T00:00:00", { zone: NZ }).toSeconds();
     expect(epoch).toBe(Math.floor(expected));
   });
 
   it("returns a future timestamp even when called near July", () => {
-    const epoch = getNextJulyAnchorEpoch(dt("2026-07-01T00:00:00", NZ));
+    const epoch = getNextRenewalAnchorEpoch(dt("2026-07-01T00:00:00", NZ));
     const expected = DateTime.fromISO("2027-07-01T00:00:00", { zone: NZ }).toSeconds();
     expect(epoch).toBe(Math.floor(expected));
   });

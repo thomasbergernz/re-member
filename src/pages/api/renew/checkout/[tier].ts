@@ -135,10 +135,14 @@ export const POST: APIRoute = async ({ request, params }) => {
       customer_creation: "always",
       client_reference_id: renewalId,
       payment_intent_data: { receipt_email: email, setup_future_usage: "off_session" },
+      // NOTE: pdEntries are intentionally NOT placed in Stripe metadata — a
+      // member with several PD rows would exceed Stripe's 500-char per-value
+      // limit and the session create would throw. They are persisted in the
+      // Renewals sheet by appendRenewal() above; the webhook reads them back
+      // via getRenewalById(renewalId).
       metadata: {
         flow: "renewal", tier, renewal_id: renewalId, renewal_year: String(year),
         first_name: firstName, last_name: lastName, email, phone,
-        pd_entries: JSON.stringify(pdEntries),
         amount_cents: String(priceConfig.unitAmount),
       },
     }, { idempotencyKey: `renewal:${tier}:${renewalId}` });

@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { formatAnchorDate } from "../lib/config";
+const anchor = formatAnchorDate();
 ---
 <html>
 <head><meta http-equiv="refresh" content="0;url=/professional/apply/" /></head>
@@ -8,10 +10,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <section class="bg-white border border-gray-200 rounded-xl p-4">
     <h1 class="text-2xl sm:text-4xl font-bold mb-1">Professional Membership</h1>
     <p class="text-gray-600 m-0">
-      Pay today, then annual billing starts on 1 July.
+      Pay today, then annual billing starts on {anchor}.
     </p>
     <p class="mt-4 mb-0 font-semibold text-gray-700">
-      First-time subscribers receive a prorated discount based on weeks remaining until 1 July.
+      First-time subscribers receive a prorated discount based on weeks remaining until {anchor}.
     </p>
   </section>
 
@@ -72,13 +74,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       />
     </div>
     <p class="text-gray-600 mt-2 mb-0 text-sm">
-      First-time subscribers receive a prorated discount based on weeks remaining until 1 July.
+      First-time subscribers receive a prorated discount based on weeks remaining until {anchor}.
     </p>
   </section>
 
   <section class="bg-white border border-gray-200 rounded-xl p-4 mt-4">
     <h2 class="m-0">Professional membership</h2>
-    <p class="text-gray-600 m-0">Then <span id="professional-price">loading…</span> per year starting 1 July.</p>
+    <p class="text-gray-600 m-0">Then <span id="professional-price">loading…</span> per year starting {anchor}.</p>
     <button id="checkout-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg mt-4 w-full sm:w-auto sm:max-w-sm flex items-center justify-center gap-2" data-plan="professional">
       Continue with Professional
     </button>

@@ -5,9 +5,10 @@ import {
   calcFirstTermAmount,
   formatAmountNzd,
   isCheckoutDryRunEnabled,
-  getNextJulyAnchorEpoch,
+  getNextRenewalAnchorEpoch,
   getSiteBaseUrl,
 } from "../../lib/stripe-checkout";
+import { CURRENCY, formatAnchorDate } from "../../lib/config";
 import { logger } from "../../lib/logger";
 
 type CreateSessionPayload = {
@@ -81,7 +82,7 @@ export const POST: APIRoute = async ({ request }) => {
   const dryRun = isCheckoutDryRunEnabled();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   const recurringPriceId = process.env.STRIPE_PRICE_2?.trim();
-  const billingCycleAnchor = getNextJulyAnchorEpoch();
+  const billingCycleAnchor = getNextRenewalAnchorEpoch();
   const siteBaseUrl = getSiteBaseUrl(request.url);
 
   if (!recurringPriceId) {
@@ -99,9 +100,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const recurringPrice = await stripe.prices.retrieve(recurringPriceId);
-  if (recurringPrice.currency !== "nzd" || !recurringPrice.unit_amount) {
+  if (recurringPrice.currency !== CURRENCY || !recurringPrice.unit_amount) {
     return Response.json(
-      { error: "Recurring price must be a fixed NZD amount." },
+      { error: `Recurring price must be a fixed ${CURRENCY.toUpperCase()} amount.` },
       { status: 500 },
     );
   }
@@ -115,7 +116,7 @@ export const POST: APIRoute = async ({ request }) => {
     : calcFirstTermAmount(annualAmount);
   const proratedFirstTerm = firstTermAmount !== annualAmount;
 
-  const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting 1 July.`;
+  const renewalMessage = `Then ${formatAmountNzd(annualAmount)} per year starting ${formatAnchorDate()}.`;
 
   if (dryRun) {
     logger.info("checkout_session.dry_run_validated", {
@@ -151,7 +152,7 @@ export const POST: APIRoute = async ({ request }) => {
       {
         quantity: 1,
         price_data: {
-          currency: "nzd",
+          currency: CURRENCY,
           unit_amount: firstTermAmount,
           product_data: {
             name: "Professional Membership",
@@ -193,8 +194,12 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
+    // Include firstTermAmount in the key: the prorated amount shrinks each
+    // week toward the membership-year anchor, so a static key would make a
+    // return visit in a later week collide with Stripe's idempotency cache
+    // (same key, different unit_amount → hard idempotency-conflict error).
     const session = await stripe.checkout.sessions.create(params, {
-      idempotencyKey: `checkout:prof:${email}`,
+      idempotencyKey: `checkout:prof:${email}:${firstTermAmount}`,
     });
 
     logger.info("checkout_session.created", {

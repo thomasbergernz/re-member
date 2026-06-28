@@ -585,15 +585,15 @@ Cross-reference: `docs/runbooks/github-actions-bootstrap.md` (full deep-dive).
 **Quick path:**
 
 ```sh
-# Fly token (classic PAT, fine for org-level secret)
-fly auth token
+# Fly token — `fly auth token` is deprecated, use `fly tokens create org`
+fly tokens create org <org-slug>
 ```
 
 Add to the client's fork at **Settings → Secrets and variables → Actions**:
 
 | Type | Name | Value |
 |---|---|---|
-| Secret | `FLY_API_TOKEN` | the `fly auth token` output |
+| Secret | `FLY_API_TOKEN` | the `fly tokens create org <org-slug>` output |
 | Secret | `REMEMBER_HEALTH_CHECK_TOKEN` | the same hex value as `CHECK_TOKEN` from Phase 8 |
 | Variable | `REMEMBER_HEALTH_ALERT_URL` | the Worker URL from Phase 8 |
 

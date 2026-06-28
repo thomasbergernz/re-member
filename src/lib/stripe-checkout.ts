@@ -1,5 +1,11 @@
 import { DateTime } from "luxon";
 import { TIERS } from "./forms/tiers";
+import {
+  TIMEZONE,
+  RENEWAL_ANCHOR_MONTH,
+  RENEWAL_ANCHOR_DAY,
+  formatMoney,
+} from "./config";
 
 /**
  * Phase M: derive the MembershipPlan union from TIERS so adding a tier
@@ -7,22 +13,23 @@ import { TIERS } from "./forms/tiers";
  */
 export type MembershipPlan = keyof typeof TIERS;
 
-const NZ_TIMEZONE = "Pacific/Auckland";
+const NZ_TIMEZONE = TIMEZONE;
 
 export function isPromoWindowNz(now: DateTime = DateTime.utc()): boolean {
   const nzNow = now.setZone(NZ_TIMEZONE);
   return nzNow.month >= 1 && nzNow.month <= 6;
 }
 
-export function getNextJulyAnchorDate(now: DateTime = DateTime.utc()): DateTime {
+export function getNextRenewalAnchorDate(now: DateTime = DateTime.utc()): DateTime {
   const nzNow = now.setZone(NZ_TIMEZONE);
-  const anchorYear = nzNow.month >= 7 ? nzNow.year + 1 : nzNow.year;
+  const anchorYear =
+    nzNow.month >= RENEWAL_ANCHOR_MONTH ? nzNow.year + 1 : nzNow.year;
 
   return DateTime.fromObject(
     {
       year: anchorYear,
-      month: 7,
-      day: 1,
+      month: RENEWAL_ANCHOR_MONTH,
+      day: RENEWAL_ANCHOR_DAY,
       hour: 0,
       minute: 0,
       second: 0,
@@ -31,14 +38,15 @@ export function getNextJulyAnchorDate(now: DateTime = DateTime.utc()): DateTime 
   );
 }
 
-export function getNextJulyAnchorEpoch(now: DateTime = DateTime.utc()): number {
-  return Math.floor(getNextJulyAnchorDate(now).toSeconds());
+export function getNextRenewalAnchorEpoch(now: DateTime = DateTime.utc()): number {
+  return Math.floor(getNextRenewalAnchorDate(now).toSeconds());
 }
 
 export type ProrationUnit = "week" | "month";
 
 /**
- * Calculate first-term amount using proration from now until next July 1.
+ * Calculate first-term amount using proration from now until the next
+ * renewal anchor (RENEWAL_ANCHOR_MONTH/DAY, default 1 July).
  * Rounds to nearest cent (whole number of cents).
  */
 export function calcFirstTermAmount(
@@ -46,24 +54,27 @@ export function calcFirstTermAmount(
   now: DateTime = DateTime.utc(),
   unit: ProrationUnit = "week",
 ): number {
-  const nextJuly = getNextJulyAnchorDate(now);
+  const nextAnchor = getNextRenewalAnchorDate(now);
   const nowInNz = now.setZone(NZ_TIMEZONE);
 
   if (unit === "week") {
-    const diff = nextJuly.diff(nowInNz, "weeks");
+    const diff = nextAnchor.diff(nowInNz, "weeks");
     const weeksRemaining = diff.weeks;
     // Rounding: use Math.round to round to nearest cent
     return Math.round(annualAmountCents * (weeksRemaining / 52));
   } else {
     // month-based: uses fractional months
-    const diff = nextJuly.diff(nowInNz, "months");
+    const diff = nextAnchor.diff(nowInNz, "months");
     const monthsRemaining = diff.months;
     return Math.round(annualAmountCents * (monthsRemaining / 12));
   }
 }
 
 export function getSiteBaseUrl(requestUrl: string): string {
-  const configured = process.env.PUBLIC_SITE_URL?.trim();
+  // Single canonical base-URL env var (PUBLIC_APP_URL). Falls back to the
+  // request origin when unset. getPublicAppUrl() in staging.ts reads the same
+  // var so checkout-redirect URLs and email links never diverge.
+  const configured = process.env.PUBLIC_APP_URL?.trim();
   if (configured) return configured.replace(/\/$/, "");
   return new URL(requestUrl).origin;
 }
@@ -79,7 +90,7 @@ export function getPlanDisplayName(plan: MembershipPlan): string {
 }
 
 export function formatAmountNzd(amountInCents: number): string {
-  return `NZ$${(amountInCents / 100).toFixed(2)}`;
+  return formatMoney(amountInCents);
 }
 
 export function isCheckoutDryRunEnabled(): boolean {

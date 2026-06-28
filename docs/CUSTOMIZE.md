@@ -82,15 +82,55 @@ Webhook endpoints (configure in Stripe Dashboard):
 
 ## 6. Email
 
-Two providers supported (pick one):
+Mailgun is the sole transactional-email provider (all three vars required):
 
-**Mailgun:**
 - `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_FROM`
   (e.g. `Re:Member <no-reply@mg.your-domain.example>`)
 
-**Gmail OAuth:**
-- `GMAIL_SENDER_EMAIL`, `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET`,
-  `GMAIL_OAUTH_REFRESH_TOKEN`
+`/api/health` reports `email: not_configured` (and the whole check goes
+`degraded`) until these are set. See `docs/runbooks/mailgun-setup.md`.
+
+> The earlier Gmail OAuth path was removed — Workspace session-control policy
+> reauthed the refresh token every ~24h (`invalid_rapt`), recurrently degrading
+> health. `GMAIL_*` env vars are no longer read by any code.
+
+## 6b. Localisation constants (currency, timezone, membership year)
+
+The blueprint is hardcoded for a New Zealand org. These are centralised in
+`src/lib/config.ts` — change them there (not scattered across modules):
+
+| Constant | Default | Meaning |
+|----------|---------|---------|
+| `CURRENCY` | `"nzd"` | Stripe currency code (lower-case). Stripe Prices must be created in this currency, or the guard in `stripe-products.ts` rejects them and health goes `degraded`. |
+| `CURRENCY_SYMBOL` | `"NZ$"` | Prefix for formatted amounts via `formatMoney()`. |
+| `TIMEZONE` | `"Pacific/Auckland"` | IANA zone for the membership-year anchor + proration math. |
+| `RENEWAL_ANCHOR_MONTH` / `RENEWAL_ANCHOR_DAY` | `7` / `1` | Membership year anchor (1 July). Renewals and the deferred subscription `trial_end` align to the next occurrence. **Env-overridable** — see below. |
+
+The renewal anchor is the one localisation value exposed as an **environment
+variable** (the rest are code constants), since the annual cutoff most often
+differs per org. Set `RENEWAL_ANCHOR_MONTH` (1–12) and `RENEWAL_ANCHOR_DAY`
+(1–31, valid for the month) in the env / Fly secrets. Unset or invalid values
+fall back to 1 July, so existing deployments are unaffected. The values are
+read server-side only (no `PUBLIC_` prefix).
+
+Note: static fallback price strings (`NZ$75.00` / `NZ$150.00`) also appear as
+display-only text in `src/pages/index.astro` and `src/pages/professional.astro`
+and in the `submitLabel` of the renewal form `*.content.json` schemas — update
+those by hand if you change amounts.
+
+Changing the anchor env vars is now **fully self-contained** — no copy edits
+needed. The pro-rata calculation and subscription `trial_end` honour the anchor
+(via `getNextRenewalAnchorDate` in `src/lib/stripe-checkout.ts`), and all
+user-facing date copy renders the anchor dynamically through
+`formatAnchorDate()`: the landing pages (`index.astro` / `professional.astro`)
+and the `renewalMessage` in `create-checkout-session.ts`,
+`create-professional-checkout.ts`, and `api/advanced/upload-complete.ts`.
+
+The only July-flavoured names left are the `next_july1_epoch` Stripe-metadata
+key (a wire contract between the checkout endpoints and the webhook — renaming
+it would orphan in-flight sessions across a deploy) and the `nextJuly1Epoch`
+field on the membership record. Both are functionally anchor-agnostic; leave
+them.
 
 ## 7. Sample form content (the big one)
 

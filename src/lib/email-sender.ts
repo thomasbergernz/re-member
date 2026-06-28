@@ -2,6 +2,7 @@ import FormData from "form-data";
 import Mailgun from "mailgun.js";
 import { appendEmailLog } from "./google-sheets";
 import { TIERS } from "./forms/tiers";
+import { formatMoney } from "./config";
 
 /**
  * Phase K: look up tier label from TIERS config by storageValue. O(N) over
@@ -318,7 +319,6 @@ export async function sendRenewalAdminNotification(
   const orgName = getOrgName();
   const support = getSupportEmail();
   const tierLabel = tierLabelFor(tier);
-  const amount = (amountPaidCents / 100).toFixed(2);
   const subject = `Membership renewal completed — ${memberName} (${tierLabel})`;
 
   const body = `A membership renewal has been completed.
@@ -326,7 +326,7 @@ export async function sendRenewalAdminNotification(
 Member: ${memberName}
 Email: ${memberEmail}
 Tier: ${tierLabel}
-Amount paid: NZ$${amount}
+Amount paid: ${formatMoney(amountPaidCents)}
 Renewal ID: ${renewalId}
 ${sheetUrl ? `Renewals sheet: ${sheetUrl}` : ""}
 

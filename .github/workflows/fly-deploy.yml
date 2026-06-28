@@ -13,8 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     concurrency: deploy-production
-    # Self-disable until Phase 10 sets the secret.
-    if: ${{ secrets.FLY_API_TOKEN != '' }}
+    # Self-disable until Phase 10. Gate on a repo VARIABLE, not a secret:
+    # the `secrets` context is not available in job-level `if`, so a
+    # `secrets.* != ''` guard evaluates empty and the job never runs even
+    # after the token is set. Set repo var FLY_DEPLOY_ENABLED=true to enable.
+    if: ${{ vars.FLY_DEPLOY_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v5
         with:

@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { getServiceAccountJwtAuth } from "./google-auth";
+import { formatMoney } from "./config";
 
 type CheckoutLogEntry = {
   timestamp: string;
@@ -108,7 +109,7 @@ export async function appendCheckoutLog(entry: CheckoutLogEntry): Promise<void> 
 
   const sheets = getSheetsClient();
 
-  const amountDisplay = `NZ$${(entry.amountPaid / 100).toFixed(2)}`;
+  const amountDisplay = formatMoney(entry.amountPaid);
 
   const row = [
     entry.timestamp,

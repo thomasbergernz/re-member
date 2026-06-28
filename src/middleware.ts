@@ -2,8 +2,8 @@ import { defineMiddleware } from "astro:middleware";
 
 /**
  * In-memory rate limiter for API routes.
- * Limits: 15 requests per IP per 15-minute window.
- * Resets the window on each new request from that IP.
+ * Limits: 30 requests per IP per 15-minute fixed window (resets when the
+ * window expires, not on every request).
  */
 const rateLimitStore = new Map<
   string,
@@ -12,6 +12,17 @@ const rateLimitStore = new Map<
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_REQUESTS = 30;
+
+// Paths exempt from IP rate limiting. The Stripe webhook arrives from a small
+// pool of Stripe IPs, so an event burst would trip the per-IP limit and Stripe
+// would see 429s (dropped/delayed deliveries). The health endpoint is polled by
+// Fly's liveness check + the Cloudflare alert worker and must never be
+// throttled. Both are independently authenticated (Stripe signature / health
+// CHECK_TOKEN), so the rate limiter adds no protection there.
+const RATE_LIMIT_EXEMPT_PATHS = new Set<string>([
+  "/api/stripe-webhook",
+  "/api/health",
+]);
 
 function getClientIp(request: Request): string {
   return (
@@ -41,8 +52,12 @@ const SECURITY_HEADERS = {
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
 
-  // Only rate-limit API routes
-  if (!url.pathname.startsWith("/api/")) {
+  // Only rate-limit API routes; exempt webhook + health (see
+  // RATE_LIMIT_EXEMPT_PATHS). Both still receive security headers.
+  if (
+    !url.pathname.startsWith("/api/") ||
+    RATE_LIMIT_EXEMPT_PATHS.has(url.pathname)
+  ) {
     const response = await next();
     // Apply security headers to all responses
     for (const [key, value] of Object.entries(SECURITY_HEADERS)) {

@@ -7,7 +7,9 @@ interface ImportMetaEnv {
   readonly STRIPE_PRICE_2?: string;
   readonly STRIPE_PRICE_1_RENEWAL?: string;
   readonly STRIPE_PRICE_2_RENEWAL?: string;
-  readonly PUBLIC_SITE_URL?: string;
+  readonly PUBLIC_APP_URL?: string;
+  readonly RENEWAL_ANCHOR_MONTH?: string;
+  readonly RENEWAL_ANCHOR_DAY?: string;
   readonly GOOGLE_WORKSPACE_IMPERSONATE_USER?: string;
   readonly MAILGUN_API_KEY?: string;
   readonly MAILGUN_DOMAIN?: string;

@@ -61,7 +61,7 @@ describe("checkout/[tier]", () => {
     mockStripeSessionsCreate.mockResolvedValue({ id: "cs_am_1", url: "https://stripe.com/c/cs_am_1" });
   });
 
-  it("happy path (associate): writes tier=basic. to sheet AND metadata (plan finding C3)", async () => {
+  it("happy path (associate): writes tier=basic to sheet; tier in metadata, pd_entries NOT in metadata", async () => {
     const response = await call(VALID_BODY, "basic");
     expect(response.status).toBe(200);
     const json = await response.json();
@@ -75,14 +75,16 @@ describe("checkout/[tier]", () => {
       expect.objectContaining({
         line_items: [{ quantity: 1, price: "price_basic_75" }],
         metadata: expect.objectContaining({
-          flow: "renewal", tier: "basic", pd_entries: "[]", amount_cents: "7500",
+          flow: "renewal", tier: "basic", amount_cents: "7500",
         }),
       }),
       expect.objectContaining({ idempotencyKey: expect.stringMatching(/^renewal:basic:/) }),
     );
+    // pd_entries must NOT be sent to Stripe (500-char metadata limit guard)
+    expect(mockStripeSessionsCreate.mock.calls[0][0].metadata).not.toHaveProperty("pd_entries");
   });
 
-  it("happy path (professional): phone + pdEntries pass through to sheet AND metadata", async () => {
+  it("happy path (professional): phone + pdEntries go to sheet; pd_entries NOT in metadata", async () => {
     mockResolveRenewalPrice.mockResolvedValue({ priceId: "price_adv_150", currency: "nzd", unitAmount: 15000 });
     const proBody = {
       firstName: "Alice",
@@ -110,16 +112,16 @@ describe("checkout/[tier]", () => {
         metadata: expect.objectContaining({
           flow: "renewal", tier: "adv",
           phone: "+64 21 123 4567",
-          pd_entries: JSON.stringify(proBody.pdEntries),
           amount_cents: "15000",
         }),
         cancel_url: expect.stringContaining("phone=%2B64%2021%20123%204567"),
       }),
       expect.objectContaining({ idempotencyKey: expect.stringMatching(/^renewal:adv:/) }),
     );
+    expect(mockStripeSessionsCreate.mock.calls[0][0].metadata).not.toHaveProperty("pd_entries");
   });
 
-  it("professional with empty pdEntries writes [] to sheet + metadata", async () => {
+  it("professional with empty pdEntries writes [] to sheet; metadata omits pd_entries", async () => {
     mockResolveRenewalPrice.mockResolvedValue({ priceId: "price_adv_150", currency: "nzd", unitAmount: 15000 });
     const response = await call({
       firstName: "Alice", lastName: "Smith", email: "alice@example.com",
@@ -131,10 +133,11 @@ describe("checkout/[tier]", () => {
     }));
     expect(mockStripeSessionsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: expect.objectContaining({ pd_entries: "[]", phone: "021 123 4567" }),
+        metadata: expect.objectContaining({ phone: "021 123 4567" }),
       }),
       expect.anything(),
     );
+    expect(mockStripeSessionsCreate.mock.calls[0][0].metadata).not.toHaveProperty("pd_entries");
   });
 
   it("uses dynamic [tier] URL segment as the route parameter", async () => {
