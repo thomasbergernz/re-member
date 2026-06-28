@@ -5,11 +5,18 @@
  * Idempotently creates the Drive folders + spreadsheet that Re:Member needs.
  * Runs after Phase 5 (Workspace DWD authorized) so the SA can impersonate.
  *
- * Usage:
- *   export GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="$(cat ./sa-key.json)"
- *   export GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@<client-domain>"
- *   export CLIENT_NAME="itdocsnow"  # optional, used in folder/spreadsheet names
- *   node bin/setup-google-workspace.js
+ * Two modes for fetching the SA key:
+ *
+ *   1. From Bitwarden (preferred — no plaintext key on disk):
+ *      export BW_SESSION="$(bw unlock --raw)"      # in a TTY-enabled shell
+ *      export GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@<client-domain>"
+ *      export BW_ATTACHMENT_ITEM="gcp-sa-key-itdocsnow"
+ *      export CLIENT_NAME="itdocsnow"
+ *      node bin/setup-google-workspace.js
+ *
+ *   2. From env var (fallback for CI / scripted ops without bw):
+ *      export GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="$(cat ./sa-key.json)"
+ *      ... (rest as above)
  *
  * Output (stdout):
  *   APPLICATIONS_FOLDER_ID=...
@@ -19,39 +26,65 @@
  *
  * Idempotent: if a folder or spreadsheet already exists with the expected
  * name, the existing ID is returned instead of creating a duplicate.
- *
- * Required env vars:
- *   GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY  - JSON key (full PEM private key as a string)
- *   GOOGLE_WORKSPACE_IMPERSONATE_USER  - subject for DWD impersonation
- *
- * Optional env vars:
- *   CLIENT_NAME (default "client") - used to name folder + spreadsheet
- *   PARENT_FOLDER_ID               - if set, create the folders inside this Drive folder
  */
 
 import { google } from "googleapis";
-import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 
-const SA_KEY = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY;
 const IMPERSONATE = process.env.GOOGLE_WORKSPACE_IMPERSONATE_USER;
 const CLIENT_NAME = process.env.CLIENT_NAME ?? "client";
 const PARENT_FOLDER_ID = process.env.PARENT_FOLDER_ID ?? null;
 
-if (!SA_KEY) {
-  console.error("GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY is required");
-  process.exit(1);
-}
 if (!IMPERSONATE) {
   console.error("GOOGLE_WORKSPACE_IMPERSONATE_USER is required");
   process.exit(1);
 }
 
-let credentials;
-try {
-  credentials = JSON.parse(SA_KEY);
-} catch (err) {
-  console.error("Failed to parse GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY as JSON");
-  process.exit(1);
+async function loadCredentialsFromBitwarden(itemName) {
+  if (!process.env.BW_SESSION) {
+    throw new Error("BW_SESSION is not set; required for bw-based credential loading");
+  }
+  // Find the item by name in any folder
+  const itemIdJson = execFileSync("bw", [
+    "list", "items",
+    "--search", itemName,
+  ], { env: process.env, encoding: "utf8" });
+  const items = JSON.parse(itemIdJson);
+  const item = items.find((i) => i.name === itemName);
+  if (!item) {
+    throw new Error(`Bitwarden item "${itemName}" not found`);
+  }
+  const itemJson = execFileSync("bw", ["get", "item", item.id], {
+    env: process.env,
+    encoding: "utf8",
+  });
+  const full = JSON.parse(itemJson);
+  const attachment = full.attachments?.[0];
+  if (!attachment) {
+    throw new Error(`No attachment on Bitwarden item "${itemName}"`);
+  }
+  // Download attachment to a temp file (avoid stdout exposure)
+  const tmpFile = `/tmp/${itemName}-${attachment.id}.json`;
+  execFileSync("bw", [
+    "get", "attachment", attachment.id,
+    "--itemid", item.id,
+    "--output", tmpFile,
+  ], { env: process.env, encoding: "utf8" });
+  console.error(`Downloaded SA key from BW item "${itemName}" to ${tmpFile}`);
+  return tmpFile;
+}
+
+async function loadCredentials() {
+  if (process.env.BW_ATTACHMENT_ITEM) {
+    const path = await loadCredentialsFromBitwarden(process.env.BW_ATTACHMENT_ITEM);
+    return JSON.parse(await import("node:fs").then((m) => m.promises.readFile(path, "utf8")));
+  }
+  const raw = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY;
+  if (!raw) {
+    console.error("Either BW_ATTACHMENT_ITEM or GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY is required");
+    process.exit(1);
+  }
+  return JSON.parse(raw);
 }
 
 const auth = new google.auth.JWT({
@@ -192,6 +225,7 @@ async function shareWithServiceAccount(fileId, saEmail) {
 
 (async () => {
   try {
+    const credentials = await loadCredentials();
     const applicationsFolderId = await ensureFolder(APPLICATIONS_FOLDER, PARENT_FOLDER_ID);
     const reviewDocsFolderId = await ensureFolder(REVIEW_DOCS_FOLDER, PARENT_FOLDER_ID);
     const spreadsheetId = await ensureSpreadsheet(SPREADSHEET_NAME);
