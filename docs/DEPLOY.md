@@ -347,12 +347,27 @@ The structure to create is:
 
 Run after Phase 5 (DWD authorized). Idempotent — safe to re-run; existing folders/spreadsheet are detected by name.
 
+**Preferred — fetch SA key from Bitwarden (no plaintext key on disk):**
+
 ```sh
-# Export the SA key (one line, real newlines as \n inside the JSON private_key)
-export GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="$(jq -r @json < /path/to/sa-key.json)"
+# In a TTY-enabled shell (bw needs a password prompt):
+export BW_SESSION="$(bw unlock --raw)"
 
 export GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@<client-domain>"
-export CLIENT_NAME="itdocsnow"  # used in folder + spreadsheet names
+export BW_ATTACHMENT_ITEM="gcp-sa-key-<client-slug>"   # matches the §2b item name
+export CLIENT_NAME="<client-slug>"                    # used in folder + spreadsheet names
+
+node bin/setup-google-workspace.js
+```
+
+The script calls `bw get attachment` to download the SA key from the named BW item into a temp file, reads it, and deletes the temp file. The plaintext key never touches the operator's home dir or any persistent disk path.
+
+**Fallback — SA key as env var (CI, scripted ops without bw):**
+
+```sh
+export GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="$(jq -r @json < /path/to/sa-key.json)"
+export GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@<client-domain>"
+export CLIENT_NAME="<client-slug>"
 
 node bin/setup-google-workspace.js
 ```
