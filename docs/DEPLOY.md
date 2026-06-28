@@ -17,7 +17,7 @@ The blueprint ships with sample form content from a single professional-membersh
 | Reply-To mailbox | `membership@itdocsnow.com` | `SUPPORT_EMAIL` |
 | Admin notification mailbox | `admin@itdocsnow.com` | `ADMIN_EMAIL` |
 | Workspace primary domain | `itdocsnow.com` | DWD subject + impersonation user |
-| Impersonation user (mailbox) | `it-admin@itdocsnow.com` | `GOOGLE_WORKSPACE_IMPERSONATE_USER` |
+| Impersonation user (mailbox) | `it-admin@example.com` | `GOOGLE_WORKSPACE_IMPERSONATE_USER` |
 | Sending subdomain (Mailgun) | `mg.itdocsnow.com` | `MAILGUN_DOMAIN` |
 | Fly org slug | `itdocsnow-member` | `fly orgs create itdocsnow-member` |
 | Fly app names | `itdocsnow-staging`, `itdocsnow-production` | `fly.toml` + workflows |
@@ -322,7 +322,7 @@ This is best practice and orthogonal to Re:Member — Re:Member's runtime doesn'
 
 ### 3c. Verify
 
-For itdocsnow.com: confirm `it-admin@itdocsnow.com` exists, has 2SV off, and that `admin@itdocsnow.com` can log into admin.google.com.
+For itdocsnow.com: confirm `it-admin@example.com` exists, has 2SV off, and that `admin@itdocsnow.com` can log into admin.google.com.
 
 Open `https://admin.google.com/ac/security/apicontrols` while logged in as an admin. The "Manage Domain Wide Delegation" link should be visible.
 
@@ -330,26 +330,68 @@ Open `https://admin.google.com/ac/security/apicontrols` while logged in as an ad
 
 ## 4. Drive folders + Sheets skeleton
 
-In the target Workspace (Drive at drive.google.com, signed in as `admin@<client-domain>` or equivalent):
+The structure to create is:
 
-**Two top-level folders:**
-- `<client>/applications/` — becomes `GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID`
-- `<client>/review-docs/` — becomes `GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID`
-
-**One Google Sheet** with these tabs (exact names — code reads them positionally):
-
-| Tab | Columns | Used by |
+| Object | Name | Purpose |
 |---|---|---|
-| `Basic Applications` | 16 | `src/lib/google-sheets.ts:34` (`BASIC_APPLICATIONS_SHEET`) |
-| `Renewals` | 14 | `src/lib/renewal-sheet.ts:55` (`SHEET_NAME`) |
-| `Email log` | 7 | `src/lib/google-sheets.ts:35` (`EMAIL_LOG_SHEET`) |
-| `Drive Files` | 6 | `src/lib/drive-files.ts:5` (`DRIVE_FILES_SHEET`) — lazy-created by app on first upload, but pre-create it |
+| Drive folder | `<client>/applications` | Per-applicant document uploads |
+| Drive folder | `<client>/review-docs` | Auto-generated Google Doc reviews |
+| Spreadsheet tab | `Basic Applications` | 16 columns — basic-apply submissions |
+| Spreadsheet tab | `Renewals` | 14 columns — renewal data |
+| Spreadsheet tab | `Email log` | 7 columns — outbound email audit trail |
+| Spreadsheet tab | `Drive Files` | 6 columns — soft-deleted upload records |
 
 `Advanced Applications` (47 cols) is created by the app on first Pro apply — don't pre-create.
 
-**Share the spreadsheet + both Drive folders with the SA email as Editor.** Drive folder sharing is a manual step (right-click → Share → paste SA email → Editor).
+### 4a. Automated (recommended)
 
-Verify: open the sheet, confirm SA is in the share list with Editor. Open one Drive folder, confirm SA appears in the share list.
+Run after Phase 5 (DWD authorized). Idempotent — safe to re-run; existing folders/spreadsheet are detected by name.
+
+```sh
+# Export the SA key (one line, real newlines as \n inside the JSON private_key)
+export GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY="$(jq -r @json < /path/to/sa-key.json)"
+
+export GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@<client-domain>"
+export CLIENT_NAME="itdocsnow"  # used in folder + spreadsheet names
+
+node bin/setup-google-workspace.js
+```
+
+Output (stdout, capture into BW `google-spreadsheet-id`):
+
+```
+APPLICATIONS_FOLDER_ID=<id>
+REVIEW_DOCS_FOLDER_ID=<id>
+SPREADSHEET_ID=<id>
+SPREADSHEET_URL=https://docs.google.com/spreadsheets/d/<id>/edit
+```
+
+The script:
+- Creates the 2 folders (skipped if they exist)
+- Creates the spreadsheet with 4 tabs (skipped if it exists)
+- Writes the column headers for each tab (idempotent — re-runs overwrite row 1)
+- Shares the spreadsheet + both folders with the SA as Editor (skipped if already shared)
+
+Optional: `PARENT_FOLDER_ID` env var puts the 2 folders inside an existing parent folder (useful for clients with a "Member Services" parent).
+
+### 4b. Manual (fallback if script fails)
+
+In the target Workspace (Drive at drive.google.com, signed in as `admin@<client-domain>` or equivalent):
+
+1. Create the 2 folders manually (`<client>/applications/`, `<client>/review-docs/`).
+2. Create a Google Sheet named `<client>-member-test`.
+3. Add the 4 tabs (`Basic Applications`, `Renewals`, `Email log`, `Drive Files`).
+4. Add headers in row 1 of each tab. The column names + counts are in §4's table.
+5. Share the spreadsheet + both Drive folders with the SA email as Editor.
+
+**Capture the 3 IDs** (spreadsheet + 2 folders) and store in BW item `google-spreadsheet-id` (custom field, JSON):
+```json
+{
+  "spreadsheet_id": "<id>",
+  "applications_folder_id": "<id>",
+  "review_docs_folder_id": "<id>"
+}
+```
 
 ---
 
@@ -477,7 +519,7 @@ fly secrets set -a itdocsnow-staging \
   GOOGLE_SHEETS_SPREADSHEET_ID="..." \
   GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID="..." \
   GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID="..." \
-  GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@itdocsnow.com" \
+  GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@example.com" \
   MAILGUN_API_KEY="key-..." \
   MAILGUN_DOMAIN="mg.itdocsnow.com" \
   MAILGUN_FROM="ItDocsNow <no-reply@mg.itdocsnow.com>"
@@ -610,7 +652,7 @@ This section runs the playbook end-to-end with concrete values for the user's fi
 |---|---|
 | Org name | `ItDocsNow Member Services` |
 | Workspace primary domain | `itdocsnow.com` |
-| Impersonation user | `it-admin@itdocsnow.com` |
+| Impersonation user | `it-admin@example.com` |
 | GCP project | `itdocsnow-member-sheets` |
 | SA email | `remember-sheets@itdocsnow-member-sheets.iam.gserviceaccount.com` |
 | Mailgun sending domain | `mg.itdocsnow.com` |
