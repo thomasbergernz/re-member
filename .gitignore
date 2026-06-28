@@ -26,3 +26,10 @@ coverage/
 .wolf/cron-state.json
 .wolf/token-ledger.json
 .wolf/hooks/_session.json
+<<<<<<< HEAD
+=======
+sa-key.json
+
+# openwolf designqc screenshot artifacts (regenerated on each run).
+.wolf/designqc-captures/
+>>>>>>> 9908b1b (fix(styles): add FieldRenderer/Step CSS so schema-driven forms render styled)
