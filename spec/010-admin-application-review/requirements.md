@@ -10,12 +10,12 @@ On payment, a Google Doc is auto-generated summarising the application (personal
 
 ## Functional Requirements
 
-- **REQ-AR-001** On payment, auto-generate review Doc for: advanced application, basic application.
-- **REQ-AR-002** Review Doc content: personal details, training list, experience list, further requirements answers, competency grid, referees, declarations, uploaded documents list (with Drive links), payment confirmation metadata.
-- **REQ-AR-003** Doc URL stored in email notification to admin + logged.
-- **REQ-AR-004** Folder: `GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID` or fallback `GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID`.
-- **REQ-AR-005** Index docs (one per tier): aggregate list of all paid applications with name, email, payment date, link to review Doc. Refresh on demand.
-- **REQ-AR-006** Review Doc generation is async (non-blocking) per REQ-SW-005.
+- **REQ-AAR-001** On payment, auto-generate review Doc for: advanced application, basic application.
+- **REQ-AAR-002** Review Doc content: personal details, training list, experience list, further requirements answers, competency grid, referees, declarations, uploaded documents list (with Drive links), payment confirmation metadata.
+- **REQ-AAR-003** Doc URL stored in email notification to admin + logged.
+- **REQ-AAR-004** Folder: `GOOGLE_DRIVE_REVIEW_DOCS_FOLDER_ID` or fallback `GOOGLE_DRIVE_APPLICATIONS_FOLDER_ID`.
+- **REQ-AAR-005** Index docs (one per tier): aggregate list of all paid applications with name, email, payment date, link to review Doc. Refresh on demand.
+- **REQ-AAR-006** Review Doc generation is async (non-blocking) per REQ-SW-005.
 
 ## Non-Functional Requirements
 
