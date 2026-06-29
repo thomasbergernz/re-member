@@ -46,4 +46,13 @@
 - `[tier].ts` — Dynamic renewal checkout handler. tier → validateTier → appendRenewal → Stripe. Passes phone + pdEntries (Phase G). TIER_LOOKUP_KEY map for B2 (Phase D derives from TIERS). (~140 lines, ~1000 tok)
 - `[tier].test.ts` — 11 tests: associate happy + 2 professional (full + empty PD) + tier param + unknown tier + dry-run + 3 error codes. (~190 lines, ~1400 tok)
 - (DELETED Phase B) `checkout-am.ts` + `checkout-am.test.ts` — Replaced by [tier].ts
+
+## Testing harness (bug-006 regression net)
+
+- `playwright.config.ts` (root) — E2E config. node-standalone build+preview on :4321 via `webServer`; injects `E2E_STUB=1` so Sheets/Mailgun are stubbed server-side. chromium only. (~45 lines, ~500 tok)
+- `e2e/apply.spec.ts` — 4 Playwright smokes: Flow A (Start Application reaches real route, verify panel renders — bug-004), Flow B (forcefail@ recipient → emailError diagnostic renders — bug-005), + /apply & /renew/basic load/no-404. (~110 lines, ~900 tok)
+- `src/lib/__guards__/stale-paths.test.ts` — 2 unit guards: no `/professional/` route literal in `src/**`, and every `/api/` path the apply pages fetch maps to a real route file. Excludes itself. (~110 lines, ~900 tok)
+- `.github/workflows/test.yml` — CI gate (PR + push to main): `unit` job (check + vitest) + `e2e` job (playwright install + test:e2e). The fly-deploy*.yml workflows run no tests. (~55 lines, ~400 tok)
+- E2E shims live in `src/lib/upload-sheet.ts` (`makeStubSheetsClient` in `getSheetsClient`) + `src/lib/email-sender.ts` (`E2E_FORCE_EMAIL_FAIL` / `E2E_STUB` + forcefail-recipient guard at top of `sendEmail`).
+- (DELETED 2026-06-29, bug-006) `src/pages/professional.astro` + `src/pages/api/create-professional-checkout.ts` — dead legacy alias + its endpoint; meta-refresh pointed at a non-existent `/professional/apply/`.
 - (DELETED Phase G) `checkout-pm.ts` + `checkout-pm.test.ts` — Replaced by [tier].ts
