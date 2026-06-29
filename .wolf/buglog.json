@@ -1,5 +1,17 @@
 [
   {
+    "id": "bug-005",
+    "timestamp": "2026-06-29T13:55:00Z",
+    "error_message": "\"We couldn't send the email just now\" shown to applicant but the actual Mailgun/SMTP error is swallowed — applicant + admin can't tell whether config is missing, domain unverified, rate-limited, or recipient rejected. Resume link is also unavailable in response when sendResumeLink throws.",
+    "file": "src/pages/api/advanced/apply.ts (POST emailSent branches), src/pages/advanced/apply.astro (showVerifyEmailPanel)",
+    "root_cause": "Both POST email paths caught sendResumeLink errors with logger+Sentry only and returned {success:true, requiresVerification:true, emailSent:false}. No emailError string. Client could only show a generic message. Additional root cause: 2 more stale /professional/ path refs (buildResumeLinkFromToken fallback at apply.astro:408 + Start New Application href at apply.astro:231) survived the rename fix in bug-004 — only the 9 fetch paths + 3 resume links + 1 resend-link were updated.",
+    "fix": "Capture err.message into a local `emailError: string | undefined` in both POST email branches; return it in the response when emailSent is false. showVerifyEmailPanel(email, emailSent, emailError) renders the server message inline. Tests assert emailError string. Also fixed the 2 remaining stale /professional/ URLs in apply.astro (buildResumeLinkFromToken fallback + Start New Application href).",
+    "tags": ["email", "error-propagation", "diagnostics", "stale-path", "rename"],
+    "related_bugs": ["bug-004"],
+    "occurrences": 1,
+    "last_seen": "2026-06-29T13:55:00Z"
+  },
+  {
     "id": "bug-002",
     "timestamp": "2026-06-27T14:00:00Z",
     "error_message": "toRow() writes empty string `''` for hidden (visibleWhen=false) fields whose column is in columnMap. Sheet looks like the user submitted empty; in reality the field was gated off.",

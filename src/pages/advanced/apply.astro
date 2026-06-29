@@ -228,7 +228,7 @@ const token = Astro.url.searchParams.get("token");
   <section id="error-section" class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
     <h2 class="m-0 mb-4 text-amber-800">Error</h2>
     <p id="error-message"></p>
-    <a href="/professional/apply" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg inline-block mt-4">Start New Application</a>
+    <a href="/advanced/apply" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg inline-block mt-4">Start New Application</a>
   </section>
 
   <script id="form-schema" type="application/json" set:html={JSON.stringify(advancedApplySchema)}></script>
@@ -380,7 +380,7 @@ const token = Astro.url.searchParams.get("token");
     warning.classList.remove("hidden");
   }
 
-  function showVerifyEmailPanel(email, emailSent) {
+  function showVerifyEmailPanel(email, emailSent, emailError) {
     const panel = document.getElementById("verify-email-panel");
     const addr = document.getElementById("verify-email-address");
     const resend = document.getElementById("verify-email-resend-status");
@@ -391,7 +391,8 @@ const token = Astro.url.searchParams.get("token");
 
     if (resend) {
       if (emailSent === false) {
-        resend.textContent = "We couldn't send the email just now. Please try again in a minute, or contact membership@example.com.";
+        const detail = emailError ? ` (Server: ${emailError})` : "";
+        resend.textContent = `We couldn't send the email just now. Please try again in a minute, or contact membership@example.com.${detail}`;
         resend.classList.remove("hidden");
       } else {
         resend.classList.add("hidden");
@@ -407,7 +408,7 @@ const token = Astro.url.searchParams.get("token");
       u.searchParams.set("token", resumeToken);
       return `${u.origin}${u.pathname}?${u.searchParams.toString()}`;
     } catch {
-      return `${window.location.origin}/professional/apply?token=${encodeURIComponent(resumeToken)}`;
+      return `${window.location.origin}/advanced/apply?token=${encodeURIComponent(resumeToken)}`;
     }
   }
 
@@ -1206,7 +1207,7 @@ const token = Astro.url.searchParams.get("token");
           // the emailed link (the GET path) to continue.
           document.getElementById("section-register").classList.add("hidden");
           setResumeLinkWarning("");
-          showVerifyEmailPanel(email, data.emailSent);
+          showVerifyEmailPanel(email, data.emailSent, data.emailError);
           btn.disabled = false;
           btn.textContent = "Start Application";
           return;
