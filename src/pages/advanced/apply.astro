@@ -252,7 +252,7 @@ const token = Astro.url.searchParams.get("token");
         // still await __flushAutosave() to ensure pending saves complete before
         // navigating. debounceMs 800ms prevents spamming during fast typing.
         const autosave = attachAutosaveQueue(form, {
-          endpoint: "/api/professional/apply",
+          endpoint: "/api/advanced/apply",
           serialize: (fd) => JSON.stringify(window.__buildPayload__(fd, window.__token__ || "")),
           contentType: "application/json",
           debounceMs: 800,
@@ -476,7 +476,7 @@ const token = Astro.url.searchParams.get("token");
     }
     setAccessLinkStatus("Sending the link to your email...", false);
     try {
-      const res = await fetch("/api/professional/resend-link", {
+      const res = await fetch("/api/advanced/resend-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: tokenValue }),
@@ -639,7 +639,7 @@ const token = Astro.url.searchParams.get("token");
    * render emits input `name` attributes matching the schema field names
    * (with dotted paths for nested groups + repeatables). buildPayload below
    * flattens groups, serialises repeatables as JSON arrays, and serialises
-   * grids as JSON strings — matching the `/api/professional/apply` POST contract.
+   * grids as JSON strings — matching the `/api/advanced/apply` POST contract.
    */
   function buildPayload(fd) {
     const activeToken = window.__token__ || token;
@@ -715,7 +715,7 @@ const token = Astro.url.searchParams.get("token");
     try {
       const fd = new FormData(form);
       const payload = buildPayload(fd);
-      const response = await fetch("/api/professional/apply", {
+      const response = await fetch("/api/advanced/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -918,7 +918,7 @@ const token = Astro.url.searchParams.get("token");
     function uploadFileBinary({ uploadToken, docId, file, onProgress }) {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/professional/upload-file");
+        xhr.open("POST", "/api/advanced/upload-file");
         xhr.responseType = "text";
         xhr.timeout = 300000;
 
@@ -1045,7 +1045,7 @@ const token = Astro.url.searchParams.get("token");
         btn.disabled = true;
 
         try {
-          const res = await fetch("/api/professional/delete-file", {
+          const res = await fetch("/api/advanced/delete-file", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fileId, token: window.__token__ || token })
@@ -1090,7 +1090,7 @@ const token = Astro.url.searchParams.get("token");
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const res = await fetch("/api/professional/upload-complete", {
+        const res = await fetch("/api/advanced/upload-complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: window.__token__ || token })
@@ -1159,7 +1159,7 @@ const token = Astro.url.searchParams.get("token");
     btn.textContent = "Sending...";
 
     try {
-      const res = await fetch("/api/professional/apply", {
+      const res = await fetch("/api/advanced/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1256,7 +1256,7 @@ const token = Astro.url.searchParams.get("token");
   if (token) {
     (async () => {
       try {
-        const res = await fetch(`/api/professional/apply?token=${encodeURIComponent(token)}`);
+        const res = await fetch(`/api/advanced/apply?token=${encodeURIComponent(token)}`);
         const data = await res.json();
 
         window.__docsUploaded__ = {};

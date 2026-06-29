@@ -269,7 +269,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 
       const siteBaseUrl = getSiteBaseUrl(url.href);
       const tokenForResumeLink = existingApplicant.resumeToken || resumeToken;
-      const resumeLink = `${siteBaseUrl}/professional/apply?token=${tokenForResumeLink}`;
+      const resumeLink = `${siteBaseUrl}/advanced/apply?token=${tokenForResumeLink}`;
       return Response.json({
         success: true,
         resumeLink,
@@ -290,7 +290,7 @@ export const POST: APIRoute = async ({ request, url }) => {
       if (existingApplicant) {
         // Resend the existing resume link. Do NOT mutate the row — the
         // submitter has not proven they control this email.
-        const resumeLink = `${siteBaseUrl}/professional/apply?token=${existingApplicant.resumeToken}`;
+        const resumeLink = `${siteBaseUrl}/advanced/apply?token=${existingApplicant.resumeToken}`;
         const existingFullName = `${existingApplicant.firstName} ${existingApplicant.lastName}`.trim();
         try {
           await sendResumeLink(
@@ -349,7 +349,7 @@ export const POST: APIRoute = async ({ request, url }) => {
         declarationSignedAt || new Date().toISOString()
       );
 
-      const resumeLink = `${siteBaseUrl}/professional/apply?token=${newResumeToken}`;
+      const resumeLink = `${siteBaseUrl}/advanced/apply?token=${newResumeToken}`;
       try {
         await sendResumeLink(email, fullName, resumeLink, applicantId);
         emailSent = true;
