@@ -47,3 +47,10 @@
 - `[tier].test.ts` — 11 tests: associate happy + 2 professional (full + empty PD) + tier param + unknown tier + dry-run + 3 error codes. (~190 lines, ~1400 tok)
 - (DELETED Phase B) `checkout-am.ts` + `checkout-am.test.ts` — Replaced by [tier].ts
 - (DELETED Phase G) `checkout-pm.ts` + `checkout-pm.test.ts` — Replaced by [tier].ts
+
+## src/lib (notification routing)
+
+- `notification-rules.ts` — Sheet-driven webhook notification routing (2026-06-30). `NotificationEvent` union (3 wired + 4 reserved) + `getRecipientsForEvent(event, fallback?)`: filters enabled sheet rules, falls back to env email on read-fail OR no-match. (~50 lines, ~450 tok)
+- `notification-rules.test.ts` — 7 tests: enabled match, multiple recipients, case-sensitive TRUE, fallback-on-miss, fallback-on-throw, empty no-fallback ×2. Uses `vi.hoisted` for mocks. (~95 lines, ~700 tok)
+- `google-sheets.ts` (MODIFIED 2026-06-30) — added `readNotificationRules()` (reads `'Notification Rules'!A2:C`, no cache) + self-contained `ensureNotificationRulesSheet()` (writes headers once at creation; NOT the shared `ensureSheetWithHeaders`, which reverts admin edits). Also: appendCheckoutLog/appendEmailLog/appendBasicApplication + JWT auth.
+- `stripe-webhook.ts` (MODIFIED 2026-06-30) — 3 notification sites now resolve recipients via `getRecipientsForEvent` + fire-and-forget forEach instead of hardcoded ADMIN_EMAIL/SUPPORT_EMAIL.
