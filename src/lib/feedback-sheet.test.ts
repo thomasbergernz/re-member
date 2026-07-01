@@ -113,7 +113,7 @@ describe("appendFeedback", () => {
       timestamp: "2026-07-01T00:00:00.000Z",
       type: "inline",
       page: "/apply",
-    })).rejects.toThrow("MISSING_CONFIG");
+    })).rejects.toThrow("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
   });
 });
 

@@ -1,8 +1,13 @@
-import { google } from "googleapis";
 import crypto from "node:crypto";
 import { logger } from "./logger";
-import { getServiceAccountJwtAuth } from "./google-auth";
 import { TIERS, getTier } from "./forms/tiers";
+import {
+  ensureSheetWithHeaders,
+  readRange,
+  updateRange,
+  batchUpdateRanges,
+  appendToRange,
+} from "./google-sheets-helpers";
 
 export const REQUIRED_DOC_TYPES = [
   "training",
@@ -30,11 +35,6 @@ export interface UploadStatus {
   paid: boolean;
   createdAt: string;
   paidAt?: string;
-}
-
-function getSheetsClient() {
-  const auth = getServiceAccountJwtAuth(["https://www.googleapis.com/auth/spreadsheets"]);
-  return google.sheets({ version: "v4", auth });
 }
 
 /**
@@ -106,51 +106,6 @@ const SHEET_HEADERS = [
   "email_verified", // AU  (blank = legacy, treated as verified)
 ];
 
-async function ensureSheetExists(sheets: ReturnType<typeof google.sheets>): Promise<string> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  // Check if sheet already exists
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const existingSheet = spreadsheet.data.sheets?.find(
-    (s) => s.properties?.title === DEFAULT_SHEET_NAME
-  );
-
-  if (existingSheet) {
-    return existingSheet.properties?.sheetId?.toString() || "0";
-  }
-
-  // Create the sheet
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          addSheet: {
-            properties: {
-              title: DEFAULT_SHEET_NAME,
-            },
-          },
-        },
-      ],
-    },
-  });
-
-  // Add headers
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `'${DEFAULT_SHEET_NAME}'!A1:AU1`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [SHEET_HEADERS],
-    },
-  });
-
-  return "0";
-}
-
 function hashEmail(email: string): string {
   return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex");
 }
@@ -201,13 +156,7 @@ export async function createApplicantRow(
   declarationSignedAt = "",
   emailVerified = "FALSE"
 ): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-  await ensureSheetExists(sheets);
+  await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
   const emailHash = hashEmail(email);
 
@@ -261,14 +210,7 @@ export async function createApplicantRow(
     emailVerified, // AU   (default "FALSE" — verified by clicking emailed link)
   ];
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [row],
-    },
-    range: `'${DEFAULT_SHEET_NAME}'!A:AU`,
-  },);
+  await appendToRange(`'${DEFAULT_SHEET_NAME}'!A:AU`, row);
 }
 
 export async function updateApplicantFormData(
@@ -307,21 +249,10 @@ export async function updateApplicantFormData(
     declarationSignedAt?: string;
   }
 ): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-  await ensureSheetExists(sheets);
+  await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
   // Find row by applicant_id
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:A`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:A`);
   let rowIndex = -1;
 
   for (let i = 1; i < rows.length; i++) {
@@ -379,13 +310,7 @@ export async function updateApplicantFormData(
   }
   if (updates.length === 0) return;
 
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      valueInputOption: "RAW",
-      data: updates,
-    },
-  });
+  await batchUpdateRanges(updates);
 }
 
 export async function updateDocCount(
@@ -393,20 +318,8 @@ export async function updateDocCount(
   docType: string,
   count: number
 ): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
   // Find row by applicant_id
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:A`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:A`);
   let rowIndex = -1;
 
   for (let i = 1; i < rows.length; i++) {
@@ -433,33 +346,14 @@ export async function updateDocCount(
   const col = colMap[docType];
   if (!col) return;
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!${col}${rowIndex}`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [[count]],
-    },
-  });
+  await updateRange(`${DEFAULT_SHEET_NAME}!${col}${rowIndex}`, [[count]]);
 }
 
 export async function markComplete(
   applicantId: string,
   stripeSessionId: string
 ): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:A`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:A`);
   let rowIndex = -1;
 
   for (let i = 1; i < rows.length; i++) {
@@ -474,30 +368,11 @@ export async function markComplete(
   }
 
   // Update columns AP (complete) and AQ (stripe_session)
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!AP${rowIndex}:AQ${rowIndex}`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [["TRUE", stripeSessionId]],
-    },
-  });
+  await updateRange(`${DEFAULT_SHEET_NAME}!AP${rowIndex}:AQ${rowIndex}`, [["TRUE", stripeSessionId]]);
 }
 
 export async function markPaid(applicantId: string): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:A`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:A`);
   let rowIndex = -1;
 
   for (let i = 1; i < rows.length; i++) {
@@ -513,38 +388,14 @@ export async function markPaid(applicantId: string): Promise<void> {
 
   // Update columns AR (paid) and AT (paid_at)
   const paidAt = new Date().toISOString();
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      valueInputOption: "RAW",
-      data: [
-        {
-          range: `${DEFAULT_SHEET_NAME}!AR${rowIndex}`,
-          values: [["TRUE"]],
-        },
-        {
-          range: `${DEFAULT_SHEET_NAME}!AT${rowIndex}`,
-          values: [[paidAt]],
-        },
-      ],
-    },
-  });
+  await batchUpdateRanges([
+    { range: `${DEFAULT_SHEET_NAME}!AR${rowIndex}`, values: [["TRUE"]] },
+    { range: `${DEFAULT_SHEET_NAME}!AT${rowIndex}`, values: [[paidAt]] },
+  ]);
 }
 
 export async function markEmailVerified(applicantId: string): Promise<void> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:A`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:A`);
   let rowIndex = -1;
 
   for (let i = 1; i < rows.length; i++) {
@@ -560,14 +411,7 @@ export async function markEmailVerified(applicantId: string): Promise<void> {
 
   // Column AU = email_verified. Best-effort write: callers (e.g. GET on token
   // load) should not fail the user-visible response if this write fails.
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!AU${rowIndex}`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [["TRUE"]],
-    },
-  });
+  await updateRange(`${DEFAULT_SHEET_NAME}!AU${rowIndex}`, [["TRUE"]]);
 }
 
 export interface ApplicantInfo {
@@ -623,20 +467,9 @@ export interface ApplicantInfo {
 export async function getApplicantByToken(
   token: string
 ): Promise<ApplicantInfo | null> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
+  await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
-  const sheets = getSheetsClient();
-  await ensureSheetExists(sheets);
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:AU`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
 
   // Row index: AG = column index 32 (0-based), so row[32] = resumeToken
   for (let i = 1; i < rows.length; i++) {
@@ -709,20 +542,9 @@ export async function getApplicantByToken(
 export async function getApplicantByEmail(
   email: string
 ): Promise<ApplicantInfo | null> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
+  await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
-  const sheets = getSheetsClient();
-  await ensureSheetExists(sheets);
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:AU`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
 
   // row[1] = email (column B)
   for (let i = 1; i < rows.length; i++) {
@@ -786,19 +608,7 @@ export async function getApplicantByEmail(
 export async function getUploadStatus(
   applicantId: string
 ): Promise<UploadStatus | null> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:AU`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -904,19 +714,7 @@ export async function validateCompletion(applicantId: string): Promise<boolean> 
 }
 
 export async function getApplicantById(applicantId: string): Promise<ApplicantInfo | null> {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID.");
-  }
-
-  const sheets = getSheetsClient();
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DEFAULT_SHEET_NAME}!A:AU`,
-  });
-
-  const rows = result.data.values || [];
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
