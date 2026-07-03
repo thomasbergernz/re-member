@@ -28,8 +28,12 @@ export interface RenewalInput {
   amountCents: number;
   currency: string;
   stripeSession: string;
-  paymentStatus: "pending";
+  /** Manual renewals are created "pending" and flipped by markRenewalPaid;
+   *  auto-renewal (subscription_cycle invoice) rows are created "paid". */
+  paymentStatus: "pending" | "paid";
   createdAt: string;
+  /** Column N. Only set when the row is created already-paid (auto-renewals). */
+  paidAt?: string;
 }
 
 export interface RenewalRow {
@@ -75,7 +79,7 @@ export async function appendRenewal(input: RenewalInput): Promise<void> {
     input.paymentStatus,
     input.stripeSession,
     input.createdAt,
-    "",
+    input.paidAt ?? "",
   ];
 
   await appendRow(SHEET_NAME, RENEWAL_HEADERS, row);
@@ -133,7 +137,26 @@ export async function getRenewalById(renewalId: string): Promise<RenewalRow | nu
   // webhook backfills it, so it cannot be the lookup key.
   const match = dataRows.find((r) => r[0] === renewalId);
   if (!match) return null;
+  return rowToRenewal(match);
+}
 
+/**
+ * Looks up a renewal by its Stripe payment reference (column L,
+ * `stripe_session`): a Checkout Session id for manual renewals, an invoice
+ * id (`in_…`) for auto-renewals. This is the idempotency key for
+ * `invoice.payment_succeeded` replays (spec 005 REQ-MR-009) — same invoice
+ * delivered twice must not append a second row.
+ */
+export async function getRenewalByStripeRef(ref: string): Promise<RenewalRow | null> {
+  if (!ref) return null;
+  const rows = await readRange(`'${SHEET_NAME}'!A1:N1000`);
+  const dataRows = rows.slice(1);
+  const match = dataRows.find((r) => (r[11] ?? "") === ref);
+  if (!match) return null;
+  return rowToRenewal(match);
+}
+
+function rowToRenewal(match: string[]): RenewalRow {
   const pdRaw = match[7] ?? "[]";
   const pdEntries: PdEntry[] = (() => {
     try { return JSON.parse(pdRaw); } catch { return []; }

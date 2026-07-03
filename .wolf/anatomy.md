@@ -72,3 +72,11 @@
 - `.github/workflows/test.yml` — CI gate (PR + push to main): `unit` job (check + vitest) + `e2e` job (playwright install + test:e2e). The fly-deploy*.yml workflows run no tests. (~55 lines, ~400 tok)
 - E2E shims live in `src/lib/upload-sheet.ts` (`makeStubSheetsClient` in `getSheetsClient`) + `src/lib/email-sender.ts` (`E2E_FORCE_EMAIL_FAIL` / `E2E_STUB` + forcefail-recipient guard at top of `sendEmail`).
 - (DELETED 2026-06-29, bug-006) `src/pages/professional.astro` + `src/pages/api/create-professional-checkout.ts` — dead legacy alias + its endpoint; meta-refresh pointed at a non-existent `/professional/apply/`.
+- (DELETED Phase G) `checkout-pm.ts` + `checkout-pm.test.ts` — Replaced by [tier].ts
+## Membership durability + auto-renewal (2026-07-03, branches fix/memberships-durability + fix/auto-renewal-recording)
+
+- `src/lib/memberships.ts` — durable subscription-state mirror in the `Memberships` sheet tab (9 cols A-I, spec 000 REQ-OV-003). Upsert setters, per-customer promise-chain serialisation, last_event provenance. Built on google-sheets-helpers. All exports async. (~240 lines, ~1900 tok)
+- `src/lib/memberships.test.ts` — 15 tests against the real module with mocked helpers: upsert-on-missing regression, round-trip, hasActiveSubscription truth table, write serialisation + failed-op queue recovery. (~250 lines, ~1900 tok)
+- `bin/memberships-backfill.js` — rebuilds the Memberships tab from Stripe (option_c subs). Self-contained plain JS (no src/ imports), idempotent upserts, --dry-run/--limit, 2.5s throttle. (~160 lines, ~1300 tok)
+- `src/pages/api/stripe-webhook.ts` — handleInvoicePaid now records auto-renewals (invoice.payment_succeeded, subscription_cycle only): dedupe via stripe_session, paid Renewals row, admin email, adv PD link, setActive. Membership calls awaited with provenance ids. (~700 lines, ~5400 tok)
+- `src/lib/renewal-sheet.ts` — adds getRenewalByStripeRef (col L lookup, auto-renewal idempotency), RenewalInput.paymentStatus widened to pending|paid + optional paidAt, shared rowToRenewal mapper. (~200 lines, ~1500 tok)

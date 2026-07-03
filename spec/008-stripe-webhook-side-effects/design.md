@@ -75,6 +75,40 @@ sync: markRenewalPaid(renewal_id, amountPaidCents, event.id)  // K='paid', N=now
    └─async─► if tier === 'adv': sendPdLogLink(renewal)
 ```
 
+### Auto-renewal (Option C, year 2+ — REQ-MR-009/010, REQ-SW-008)
+
+The deferred subscription's trial ends at the anchor date; Stripe charges the
+saved card and emits `invoice.payment_succeeded`. Auto-renewals join the
+manual-renewal rails: one Renewals ledger, machine- and member-created rows
+side by side. `flow`/`plan` are resolved from the SUBSCRIPTION's metadata
+(via the invoice's `parent.subscription_details` snapshot, retrieval
+fallback) — Stripe does not propagate subscription metadata to
+`invoice.metadata`, which is why the previous handler was dead code.
+
+```
+invoice.payment_succeeded
+   │
+   ▼
+billing_reason != subscription_cycle ─► skip (log reason)
+amount_paid == 0                     ─► skip
+resolve subscription → metadata.flow != option_c ─► skip
+   │
+   ▼
+getRenewalByStripeRef(invoice.id) exists? ─► skip (idempotent replay)
+   │
+   ▼
+sync: appendRenewal({ …, payment_status:'paid', stripe_session: invoice.id })
+   │
+   ├─async─► sendRenewalAdminNotification(renewal)
+   ├─async─► if tier === 'adv': sendRenewalPdLogLink(renewal)
+   ├─async─► setActive(customerId, sub.id, invoice.id)   // durable mirror
+   └─(016)─► recordPaymentInXero(payment)                // when adapter lands
+```
+
+Handle `invoice.payment_succeeded` ONLY — never also `invoice.paid` (fires
+additionally for out-of-band payments; two subscriptions means every renewal
+processed twice). Keep the Stripe dashboard endpoint's event list in sync.
+
 ## Idempotency
 
 In-memory `Set<string>` of event IDs. Per-process; resets on restart. Replays within a single process are deduped. Cross-restart replays re-process (acceptable; side effects are designed to be re-runnable).
