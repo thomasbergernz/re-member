@@ -3,7 +3,6 @@ import Stripe from "stripe";
 import * as Sentry from "@sentry/node";
 import {
   getMembership,
-  hasActiveSubscription,
   setAwaitingSubscription,
   setActive,
   setCancelled,
@@ -12,7 +11,10 @@ import {
 import { appendCheckoutLog } from "../../lib/google-sheets";
 import { logger } from "../../lib/logger";
 import { getApplicantById, markApplicantPaid } from "../../lib/upload-sheet";
-import { getRenewalById, markRenewalPaid, getRenewalsSheetUrl } from "../../lib/renewal-sheet";
+import { appendRenewal, getRenewalById, getRenewalByStripeRef, markRenewalPaid, getRenewalsSheetUrl } from "../../lib/renewal-sheet";
+import { getTier, TIERS } from "../../lib/forms/tiers";
+import { TIMEZONE } from "../../lib/config";
+import { randomUUID } from "node:crypto";
 import { getPublicAppUrl } from "../../lib/staging";
 import { createAdvancedApplicationReviewDoc, createBasicApplicationReviewDoc, refreshAdvancedIndexDoc, refreshBasicIndexDoc } from "../../lib/google-docs";
 import { sendAdvancedConfirmation, sendAdvancedApplicationNotification, sendBasicConfirmation, sendBasicApplicationNotification, sendRenewalPdLogLink, sendRenewalAdminNotification } from "../../lib/email-sender";
@@ -399,29 +401,177 @@ async function handleCheckoutCompleted(
   }
 }
 
+/**
+ * Records automatic renewals (spec 005 REQ-MR-009/-010, spec 008 acceptance
+ * criterion 3). Option C year 2+: the deferred subscription's trial ends at
+ * the anchor date, Stripe charges the saved card and emits
+ * `invoice.payment_succeeded` with `billing_reason: subscription_cycle`.
+ * The auto-renewal joins the manual-renewal rails: one Renewals-sheet ledger,
+ * machine- and member-created rows side by side, so every downstream flow
+ * (admin notification, advanced PD-log link, future Xero trigger) keys off
+ * the same rows.
+ *
+ * NOTE: the old handler filtered on `invoice.metadata.flow` — dead logic,
+ * because `flow` lives on the SUBSCRIPTION's metadata and Stripe does not
+ * propagate it to `invoice.metadata`. It appears in the invoice's
+ * `parent.subscription_details.metadata` snapshot (retrieval fallback below).
+ */
 async function handleInvoicePaid(
+  stripe: Stripe,
   invoice: Stripe.Invoice,
   log: ReturnType<typeof logger.child>,
 ): Promise<void> {
-  if (invoice.metadata?.flow !== "option_c") return;
-
-  const customerId =
-    typeof invoice.customer === "string" ? invoice.customer : undefined;
-  if (!customerId) return;
-
-  if (await hasActiveSubscription(customerId)) {
-    log.info("invoice.paid.renewal_skip", { customerId, invoiceId: invoice.id });
-    return;
-  }
-
-  const membership = await getMembership(customerId);
-  if (!membership) {
-    log.warn("invoice.paid.no_membership_record", {
-      customerId,
+  // D2 — only real anchor-date cycle invoices are renewals. Skips the $0
+  // subscription_create invoice Stripe raises when the trialing subscription
+  // is created (payment_succeeded fires for $0 invoices too).
+  if (invoice.billing_reason !== "subscription_cycle") {
+    log.info("invoice.paid.skip_billing_reason", {
       invoiceId: invoice.id,
+      billingReason: invoice.billing_reason,
     });
     return;
   }
+  if (!invoice.amount_paid) {
+    log.info("invoice.paid.skip_zero_amount", { invoiceId: invoice.id });
+    return;
+  }
+
+  const customerId =
+    typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+  const subDetails = invoice.parent?.subscription_details ?? null;
+  const subscriptionId =
+    typeof subDetails?.subscription === "string"
+      ? subDetails.subscription
+      : subDetails?.subscription?.id;
+  if (!customerId || !subscriptionId) {
+    log.warn("invoice.paid.missing_ids", {
+      invoiceId: invoice.id,
+      customerId,
+      subscriptionId,
+    });
+    return;
+  }
+
+  // D3 — flow/plan live on the SUBSCRIPTION's metadata. Prefer the invoice's
+  // subscription_details snapshot (no API call); fall back to retrieving the
+  // subscription for older invoices/API shapes.
+  let subMeta: Record<string, string> = (subDetails?.metadata ?? {}) as Record<string, string>;
+  if (!subMeta.flow) {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    subMeta = (sub.metadata ?? {}) as Record<string, string>;
+  }
+  if (subMeta.flow !== "option_c") {
+    log.info("invoice.paid.skip_flow", {
+      invoiceId: invoice.id,
+      flow: subMeta.flow ?? "(none)",
+    });
+    return;
+  }
+
+  // D4 — idempotency at the ledger boundary: the invoice ID lives in the
+  // Renewals row's stripe_session column (semantically "the Stripe payment
+  // reference"). Replay of the same invoice → no duplicate row.
+  const invoiceId = invoice.id ?? "";
+  const existing = await getRenewalByStripeRef(invoiceId);
+  if (existing) {
+    log.info("invoice.paid.already_recorded", {
+      invoiceId,
+      renewalId: existing.renewalId,
+    });
+    return;
+  }
+
+  // D5 — derive the machine-created row.
+  const plan = subMeta.plan ?? "";
+  let tier: string;
+  try {
+    tier = getTier(plan).storageValue;
+  } catch {
+    log.warn("invoice.paid.unknown_plan_metadata", { invoiceId, plan });
+    tier = TIERS.basic.storageValue;
+  }
+  const fullName = (invoice.customer_name ?? "").trim();
+  const splitAt = fullName.lastIndexOf(" ");
+  const firstName = splitAt === -1 ? fullName : fullName.slice(0, splitAt);
+  const lastName = splitAt === -1 ? "" : fullName.slice(splitAt + 1);
+  // Membership year being paid for = year of the line-period START in the
+  // org's timezone (matches manual-renewal semantics, REQ-MR-003).
+  const periodStart = invoice.lines?.data?.[0]?.period?.start ?? invoice.created;
+  const year = Number(
+    new Intl.DateTimeFormat("en", { timeZone: TIMEZONE, year: "numeric" }).format(
+      new Date(periodStart * 1000),
+    ),
+  );
+  const paidAt = new Date().toISOString();
+  const renewalId = randomUUID();
+
+  // D6 — the Renewals append is the synchronous critical write. A failure
+  // THROWS: the route's error path returns 500, Stripe retries, and the D4
+  // dedupe makes the retry safe.
+  await appendRenewal({
+    renewalId,
+    tier,
+    year,
+    firstName,
+    lastName,
+    email: invoice.customer_email ?? "",
+    phone: "",
+    pdEntries: [],
+    amountCents: invoice.amount_paid,
+    currency: invoice.currency ?? "",
+    stripeSession: invoiceId,
+    paymentStatus: "paid",
+    createdAt: paidAt,
+    paidAt,
+  });
+  log.info("invoice.paid.auto_renewal_recorded", {
+    invoiceId,
+    renewalId,
+    customerId,
+    tier,
+    year,
+    amountCents: invoice.amount_paid,
+  });
+
+  // D6 — everything below is async fire-and-forget, individually logged.
+  const adminEmail = process.env.ADMIN_EMAIL?.trim() || "admin@example.com";
+  const adminTier = tier === "basic" ? "basic" : "adv";
+  sendRenewalAdminNotification(
+    adminEmail,
+    adminTier,
+    fullName,
+    invoice.customer_email ?? "",
+    renewalId,
+    invoice.amount_paid,
+    getRenewalsSheetUrl(),
+  ).catch((err) => {
+    log.error("invoice.paid.admin_notification_failed", {
+      renewalId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
+  if (tier === "adv" && invoice.customer_email) {
+    const pdLogLink = `${getPublicAppUrl()}/renew/pd-log?token=${renewalId}`;
+    sendRenewalPdLogLink(invoice.customer_email, fullName, pdLogLink, renewalId).catch((err) => {
+      log.error("invoice.paid.pd_link_failed", {
+        renewalId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
+
+  // Durable mirror (REQ-SW-008) — also self-heals a prior payment_failed.
+  setActive(customerId, subscriptionId, invoiceId).catch((err) => {
+    log.error("invoice.paid.set_active_failed", {
+      customerId,
+      subscriptionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
+  // Spec 016 hook lands here when the Xero adapter ships:
+  // recordPaymentInXero(mapInvoiceToLedgerPayment(invoice, tier, year)) — F&F.
 }
 
 async function handleInvoicePaymentFailed(
@@ -517,8 +667,13 @@ export const POST: APIRoute = async ({ request }) => {
           log,
         );
         break;
-      case "invoice.paid":
-        await handleInvoicePaid(event.data.object as Stripe.Invoice, log);
+      // D7 — invoice.payment_succeeded ONLY. Do not also subscribe to
+      // invoice.paid (fires additionally for out-of-band payments): two
+      // subscriptions means every renewal processed twice, with the dedupe
+      // doing silent work forever. Update the Stripe dashboard webhook
+      // endpoint's event list to match.
+      case "invoice.payment_succeeded":
+        await handleInvoicePaid(stripe, event.data.object as Stripe.Invoice, log);
         break;
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(

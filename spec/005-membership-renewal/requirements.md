@@ -18,6 +18,8 @@ Existing members renew annually. Single payment per renewal (no subscription). S
 - **REQ-MR-006** On submit: append Renewals sheet row (14 cols) with `payment_status = "pending"`, `tier`, `renewal_id = UUID`, `created_at`. Redirect to Stripe Payment Link.
 - **REQ-MR-007** On webhook `checkout.session.completed` with `flow: "renewal"`: lookup `renewal_id` from metadata, flip `payment_status` to `"paid"`, set `paid_at`, send admin notification + (advanced only) PD-log link email.
 - **REQ-MR-008** `GET /api/renew/session-info?session_id=X` returns `{ tier, renewalYear, amountPaidCents }` for post-checkout confirmation UI.
+- **REQ-MR-009** Auto-renewals (deferred-subscription `subscription_cycle` invoices, Option C year 2+) are recorded as Renewals rows identically to manual renewals, with `stripe_session` holding the Stripe invoice ID (`in_…`) as the payment reference and idempotency key. Machine-created rows are appended already-`paid` with `paid_at` set.
+- **REQ-MR-010** Advanced-tier auto-renewals receive the PD-log link email; basic-tier do not. (Extends REQ-MR-007 to the auto path.)
 
 ## Non-Functional Requirements
 
@@ -35,7 +37,7 @@ Existing members renew annually. Single payment per renewal (no subscription). S
 
 ## Out of Scope
 
-- Auto-renewal subscriptions (one-time only by design).
+- Auto-renewal subscription *creation* (that is the Option C application flow, spec 007/008). The manual renewal flow stays one-time by design; recording of auto-renewal invoices is REQ-MR-009.
 - Proration for mid-year tier changes.
 - Multi-year renewal (single year at a time).
 

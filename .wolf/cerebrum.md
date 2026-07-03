@@ -54,3 +54,15 @@
 ## User Preferences
 
 - **(2026-06-27)** Future rename + N-tier extension: after Phase K completes, replace slug `professional` → `advanced` and `associate` → `basic` in URLs + functions + variables; extend tier registry to N tiers (currently hardcoded to 2 in `tiers.ts` `TIERS`). Make tier keys generic. **Why:** user explicitly requested as forward-looking work after K; sets the platform up for an arbitrary number of membership tiers without code changes.
+## Key Learnings (2026-07-03 session)
+
+- **Stripe does NOT propagate subscription metadata to `invoice.metadata`.** For renewal-cycle invoices, subscription metadata appears as a snapshot under `invoice.parent.subscription_details.metadata` (stripe-node v20 shape; older API versions need `stripe.subscriptions.retrieve`). Any webhook guard on `invoice.metadata.flow` for subscription-driven invoices is dead code (bug-007).
+- **Sandbox cannot run vitest against this repo's node_modules**: they're darwin-arm64 installs and the workspace VM is linux-arm64; the npm registry is blocked (403) so platform binaries (@rollup/rollup-linux-*, esbuild) can't be fetched. `npx tsc --noEmit` works (typescript is pure JS). Full `npm test` must run on the host machine.
+- **git in the mounted repo**: lock/tmp files can't be unlinked until file-deletion permission is granted via the cowork allow-delete flow; a failed `git checkout -b` can still leave the branch ref created (delete + recreate). Set author identity per-command with `git -c user.name=... -c user.email=...` (repo history uses "Thomas B <thomasbe@gmail.com>").
+
+## Decision Log (2026-07-03)
+
+- **Memberships mirror lives in the sheet, not a Fly volume**: Stripe is the source of truth; the `Memberships` tab is a reconstructible mirror (`bin/memberships-backfill.js` proves it). Status setters are upserts with a loud `membership_upsert_on_missing` log — a visible partial row beats a dropped fact. Financial idempotency stays on the Stripe idempotency key, never the mirror.
+- **memberships.ts uses the shared `google-sheets-helpers`** (built on the unmerged refactor/google-sheets-helpers branch) rather than duplicating retry/ensure-tab plumbing — so both fix branches are stacked on that refactor branch, not main.
+- **Auto-renewals join the manual-renewal rails** (one Renewals ledger; invoice ID in the existing `stripe_session` column as payment ref + dedupe key). No new column — spec 016 has already claimed column O (`xero_invoice_id`).
+- **Backfill script is self-contained plain JS** (googleapis + stripe directly, mirroring bin/setup-google-workspace.js) because bin/ scripts run with plain `node` and cannot import src/lib/*.ts without a loader.

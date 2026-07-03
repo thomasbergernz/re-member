@@ -24,6 +24,8 @@ const mockGetApplicantById = vi.fn();
 const mockMarkApplicantPaid = vi.fn();
 const mockMarkRenewalPaid = vi.fn();
 const mockGetRenewalById = vi.fn();
+const mockGetRenewalByStripeRef = vi.fn();
+const mockAppendRenewal = vi.fn();
 
 vi.mock("../../lib/email-sender", () => ({
   sendAdvancedConfirmation: mockSendAdvancedConfirmation,
@@ -60,6 +62,8 @@ vi.mock("../../lib/upload-sheet", () => ({
 vi.mock("../../lib/renewal-sheet", () => ({
   markRenewalPaid: mockMarkRenewalPaid,
   getRenewalById: mockGetRenewalById,
+  getRenewalByStripeRef: mockGetRenewalByStripeRef,
+  appendRenewal: mockAppendRenewal,
   getRenewalsSheetUrl: vi.fn().mockReturnValue(undefined),
 }));
 
@@ -70,6 +74,10 @@ vi.mock("@sentry/node", () => ({
 }));
 
 const mockSubscriptionsCreate = vi.fn().mockResolvedValue({ id: "sub_test_123" });
+const mockSubscriptionsRetrieve = vi.fn().mockResolvedValue({
+  id: "sub_123",
+  metadata: { flow: "option_c", plan: "advanced" },
+});
 
 vi.mock("stripe", () => {
   const mockPaymentIntentsRetrieve = vi.fn().mockResolvedValue({
@@ -90,7 +98,7 @@ vi.mock("stripe", () => {
   function MockStripe(this: unknown) {
     return {
       webhooks: { constructEvent: mockWebhooksConstructEvent },
-      subscriptions: { create: mockSubscriptionsCreate },
+      subscriptions: { create: mockSubscriptionsCreate, retrieve: mockSubscriptionsRetrieve },
       paymentIntents: { retrieve: mockPaymentIntentsRetrieve },
       customers: { update: mockCustomersUpdate },
       paymentMethods: { attach: mockPaymentMethodsAttach },
@@ -144,6 +152,31 @@ function makeInvoice(overrides: Partial<Stripe.Invoice> = {}): Stripe.Invoice {
     object: "invoice",
     metadata: { flow: "option_c" },
     customer: "cus_123",
+    ...overrides,
+  } as unknown as Stripe.Invoice;
+}
+
+/** A subscription_cycle invoice as Stripe delivers it for an Option C
+ *  auto-renewal (stripe v20 shape: subscription under parent.subscription_details). */
+function makeCycleInvoice(overrides: Record<string, unknown> = {}): Stripe.Invoice {
+  return {
+    id: "in_cycle_1",
+    object: "invoice",
+    billing_reason: "subscription_cycle",
+    amount_paid: 15000,
+    currency: "nzd",
+    customer: "cus_123",
+    customer_email: "jane@example.com",
+    customer_name: "Jane van Doe",
+    created: 1782864000, // 2026-07-01T00:00:00Z
+    lines: { data: [{ period: { start: 1782864000, end: 1814400000 } }] },
+    parent: {
+      type: "subscription_details",
+      subscription_details: {
+        subscription: "sub_123",
+        metadata: { flow: "option_c", plan: "advanced" },
+      },
+    },
     ...overrides,
   } as unknown as Stripe.Invoice;
 }
@@ -430,16 +463,122 @@ describe("stripe-webhook", () => {
     });
   });
 
-  describe("POST handler - invoice.paid", () => {
-    it("skips renewal if subscription already active", async () => {
-      mockHasActiveSubscription.mockReturnValue(true);
+  describe("POST handler - invoice.payment_succeeded (auto-renewal, REQ-MR-009/010)", () => {
+    beforeEach(() => {
+      mockGetRenewalByStripeRef.mockResolvedValue(null);
+      mockAppendRenewal.mockResolvedValue(undefined);
+      mockSetActive.mockResolvedValue(undefined);
+      mockSendRenewalAdminNotification.mockResolvedValue(undefined);
+      mockSendRenewalPdLogLink.mockResolvedValue(undefined);
+    });
+
+    async function post(invoice: Stripe.Invoice) {
       const { POST } = await import("../../pages/api/stripe-webhook");
-      const invoice = makeInvoice();
-      const body = JSON.stringify({ type: "invoice.paid", data: { object: invoice } });
+      const body = JSON.stringify({ type: "invoice.payment_succeeded", data: { object: invoice } });
       const req = makeReq(body, buildSignature(body));
-      const res = await POST(req);
+      return POST(req);
+    }
+
+    it("skips billing_reason=subscription_create (the $0 trial-creation invoice)", async () => {
+      const res = await post(makeCycleInvoice({ billing_reason: "subscription_create", amount_paid: 0 }));
       expect(res.status).toBe(200);
-      expect(mockHasActiveSubscription).toHaveBeenCalledWith("cus_123");
+      expect(mockAppendRenewal).not.toHaveBeenCalled();
+    });
+
+    it("skips zero-amount invoices even on subscription_cycle", async () => {
+      const res = await post(makeCycleInvoice({ amount_paid: 0 }));
+      expect(res.status).toBe(200);
+      expect(mockAppendRenewal).not.toHaveBeenCalled();
+    });
+
+    it("skips non-option_c subscriptions", async () => {
+      const invoice = makeCycleInvoice();
+      (invoice as unknown as { parent: { subscription_details: { metadata: Record<string, string> } } })
+        .parent.subscription_details.metadata = { flow: "something_else" };
+      const res = await post(invoice);
+      expect(res.status).toBe(200);
+      expect(mockAppendRenewal).not.toHaveBeenCalled();
+    });
+
+    it("falls back to subscriptions.retrieve when the invoice snapshot has no flow metadata", async () => {
+      const invoice = makeCycleInvoice();
+      (invoice as unknown as { parent: { subscription_details: { metadata: null } } })
+        .parent.subscription_details.metadata = null;
+      mockSubscriptionsRetrieve.mockResolvedValueOnce({
+        id: "sub_123",
+        metadata: { flow: "option_c", plan: "advanced" },
+      });
+      const res = await post(invoice);
+      expect(res.status).toBe(200);
+      expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith("sub_123");
+      expect(mockAppendRenewal).toHaveBeenCalled();
+    });
+
+    it("records an advanced auto-renewal: paid row + admin notification + PD-log link + setActive", async () => {
+      const res = await post(makeCycleInvoice());
+      expect(res.status).toBe(200);
+
+      expect(mockAppendRenewal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tier: "adv",
+          year: 2026,
+          firstName: "Jane van",
+          lastName: "Doe",
+          email: "jane@example.com",
+          amountCents: 15000,
+          currency: "nzd",
+          stripeSession: "in_cycle_1",
+          paymentStatus: "paid",
+          paidAt: expect.any(String),
+        }),
+      );
+      const renewalId = mockAppendRenewal.mock.calls[0][0].renewalId as string;
+      expect(mockSendRenewalAdminNotification).toHaveBeenCalledWith(
+        "admin@example.com",
+        "adv",
+        "Jane van Doe",
+        "jane@example.com",
+        renewalId,
+        15000,
+        undefined,
+      );
+      expect(mockSendRenewalPdLogLink).toHaveBeenCalledWith(
+        "jane@example.com",
+        "Jane van Doe",
+        expect.stringContaining(`/renew/pd-log?token=${renewalId}`),
+        renewalId,
+      );
+      // Durable mirror self-heal with the invoice as provenance.
+      expect(mockSetActive).toHaveBeenCalledWith("cus_123", "sub_123", "in_cycle_1");
+    });
+
+    it("records a basic auto-renewal without a PD-log link", async () => {
+      const invoice = makeCycleInvoice({ customer_name: "Bob" });
+      (invoice as unknown as { parent: { subscription_details: { metadata: Record<string, string> } } })
+        .parent.subscription_details.metadata = { flow: "option_c", plan: "basic" };
+      const res = await post(invoice);
+      expect(res.status).toBe(200);
+      expect(mockAppendRenewal).toHaveBeenCalledWith(
+        expect.objectContaining({ tier: "basic", firstName: "Bob", lastName: "" }),
+      );
+      expect(mockSendRenewalPdLogLink).not.toHaveBeenCalled();
+    });
+
+    it("is idempotent: an already-recorded invoice appends nothing and fires no side effects", async () => {
+      mockGetRenewalByStripeRef.mockResolvedValueOnce({ renewalId: "r_prev" });
+      const res = await post(makeCycleInvoice());
+      expect(res.status).toBe(200);
+      expect(mockGetRenewalByStripeRef).toHaveBeenCalledWith("in_cycle_1");
+      expect(mockAppendRenewal).not.toHaveBeenCalled();
+      expect(mockSendRenewalAdminNotification).not.toHaveBeenCalled();
+      expect(mockSetActive).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when the Renewals append fails (Stripe retry contract)", async () => {
+      mockAppendRenewal.mockRejectedValueOnce(new Error("sheets down"));
+      const res = await post(makeCycleInvoice());
+      expect(res.status).toBe(500);
+      expect(mockSendRenewalAdminNotification).not.toHaveBeenCalled();
     });
   });
 
