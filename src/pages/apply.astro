@@ -1,0 +1,137 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import FeedbackWidget from "../components/FeedbackWidget.astro";
+import Step from "../lib/forms/render/Step.astro";
+import { schema as basicApplySchema } from "../lib/forms/schemas/basicApply";
+import basicApplyContent from "../lib/forms/schemas/basicApply.content.json";
+
+const url = Astro.url;
+const today = new Date().toISOString().slice(0, 10);
+const initialValues: Record<string, unknown> = {
+  firstName: url.searchParams.get("firstName") ?? "",
+  lastName: url.searchParams.get("lastName") ?? "",
+  email: url.searchParams.get("email") ?? "",
+  phone: url.searchParams.get("phone") ?? "",
+  applicationDate: url.searchParams.get("applicationDate") ?? today,
+};
+---
+
+<BaseLayout
+  title="Associate Membership Application"
+  description="Apply for Associate Membership with Re:Member."
+>
+  <section class="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+    <a
+      href="https://www.example.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="inline-block mb-3 sm:mb-4"
+      aria-label="Re:Member — visit example.com"
+    >
+      <img
+        src="/logo.svg"
+        alt="Re:Member"
+        class="h-14 sm:h-20 w-auto"
+        width="357"
+        height="144"
+      />
+    </a>
+    <h1 class="text-2xl sm:text-4xl font-bold mb-1">{basicApplyContent.title}</h1>
+    <p class="text-gray-600 m-0">{basicApplyContent.description}</p>
+  </section>
+
+  <form id="apply-form" data-schema-driven data-schema-id={basicApplySchema.id} novalidate class="contents">
+    {basicApplySchema.steps.map((step) => (
+      <Step step={step} content={basicApplyContent} values={initialValues} />
+    ))}
+
+    <section class="mt-4 mb-2">
+      <button
+        id="submit-btn"
+        type="button"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg w-full sm:w-auto"
+      >
+        {basicApplyContent.submitLabel ?? "Submit Application"}
+      </button>
+      <p id="status" class="mt-3 min-h-6 text-amber-800" aria-live="polite"></p>
+    </section>
+  </form>
+
+  <FeedbackWidget />
+</BaseLayout>
+
+<script id="form-schema" type="application/json" set:html={JSON.stringify(basicApplySchema)}></script>
+
+<script>
+  // @ts-nocheck — client-side DOM glue; typechecked separately if needed.
+  import { mount } from "../lib/forms/render/form-client";
+
+  const form = document.querySelector("form[data-schema-driven]");
+  const schemaEl = document.getElementById("form-schema");
+  if (form?.parentElement && schemaEl?.textContent) {
+    try {
+      const schema = JSON.parse(schemaEl.textContent);
+      mount(form.parentElement, { schema });
+    } catch (err) {
+      console.warn("[apply] schema parse failed", err);
+    }
+  }
+
+  const statusEl = document.getElementById("status");
+  const submitBtn = document.getElementById("submit-btn");
+
+  const setStatus = (message, type = "info") => {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = type === "error"
+      ? "mt-3 min-h-6 text-amber-800"
+      : type === "ok"
+        ? "mt-3 min-h-6 text-emerald-700"
+        : "mt-3 min-h-6";
+  };
+
+  const setLoading = (isLoading) => {
+    if (!(submitBtn instanceof HTMLButtonElement)) return;
+    submitBtn.disabled = isLoading;
+    submitBtn.textContent = isLoading ? "Redirecting to Checkout..." : (form?.dataset?.submitLabel || "Submit Application");
+  };
+
+  const collectValues = () => {
+    if (!form) return {};
+    const out = {};
+    const fd = new FormData(form);
+    fd.forEach((v, k) => { out[k] = v; });
+    return out;
+  };
+
+  submitBtn?.addEventListener("click", async () => {
+    setStatus("");
+    setLoading(true);
+    setStatus("Creating your secure checkout session...");
+
+    try {
+      const payload = { plan: "associate", applicationSource: "apply", ...collectValues() };
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (data.dryRun) {
+        setLoading(false);
+        setStatus(data.message || "Dry run passed. Stripe configuration validated.", "ok");
+        return;
+      }
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Checkout session creation failed.");
+      }
+
+      window.location.assign(data.url);
+    } catch (error) {
+      setLoading(false);
+      setStatus(error instanceof Error ? error.message : "Checkout error.", "error");
+    }
+  });
+</script>

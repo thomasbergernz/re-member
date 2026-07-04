@@ -1,0 +1,40 @@
+node_modules
+.astro
+dist
+.env
+.env.*
+!.env.example
+.DS_Store
+.gstack/
+.data/
+.claude/
+coverage/
+
+# Playwright E2E artifacts (regenerated each run).
+test-results/
+playwright-report/
+.playwright/
+
+# Local runtime + secrets in .run/
+.mcp.json
+.run/gmail-oauth-env.sh
+.run/health-alert-worker/.wrangler/
+.run/health-alert-worker/dev/
+.run/*.log
+.run/*.pid
+*.har
+
+# OpenWolf runtime artifacts (not cross-machine state). The .md/.json memory
+# files (memory.md, cerebrum.md, buglog.json, anatomy.md) ARE tracked — the
+# daemon, log, and session files below are local-machine ephemeral state.
+.wolf/daemon.log
+.wolf/cron-state.json
+.wolf/token-ledger.json
+.wolf/hooks/_session.json
+sa-key.json
+
+# openwolf designqc screenshot artifacts (regenerated on each run).
+.wolf/designqc-captures/
+
+# Standalone marketing-site repo (own git history, not part of the app)
+re-member-site/

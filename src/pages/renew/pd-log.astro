@@ -1,0 +1,213 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import FeedbackWidget from "../../components/FeedbackWidget.astro";
+import Step from "../../lib/forms/render/Step.astro";
+import { schema as pdLogSchema } from "../../lib/forms/schemas/pdLog";
+import pdLogContent from "../../lib/forms/schemas/pdLog.content.json";
+---
+
+<BaseLayout title="Professional Development Log — Re:Member">
+  <FeedbackWidget />
+  <div class="max-w-3xl mx-auto p-4 sm:p-8">
+
+    <!-- Loading state -->
+    <div id="state-loading" class="text-center py-16 text-gray-500">Loading your record…</div>
+
+    <!-- Error state -->
+    <div id="state-error" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+      <p id="state-error-msg" class="text-amber-800 font-medium"></p>
+    </div>
+
+    <!-- Loaded content -->
+    <div id="state-content" class="hidden">
+      <header class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Professional Development Log</h1>
+        <p id="member-name" class="text-gray-600"></p>
+      </header>
+
+      <form id="pd-form" data-schema-driven data-schema-id={pdLogSchema.id} novalidate>
+        {pdLogSchema.steps.map((step) => (
+          <Step step={step} content={pdLogContent} values={{}} />
+        ))}
+
+        <div id="error-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+          <p id="error-message" class="text-amber-800"></p>
+        </div>
+
+        <div id="success-banner" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+          <p class="text-green-800">PD log saved successfully.</p>
+        </div>
+
+        <button id="save-btn" type="button"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
+          <span id="save-spinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span id="save-btn-label">Save PD Log</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script id="form-schema" type="application/json" set:html={JSON.stringify(pdLogSchema)}></script>
+
+  <script>
+    // @ts-nocheck — client-side DOM glue; typechecked separately if needed.
+    import { mount, hydrateFromResponse } from "../../lib/forms/render/form-client";
+
+    const form = document.querySelector("form[data-schema-driven]");
+    const schemaEl = document.getElementById("form-schema");
+    if (form?.parentElement && schemaEl?.textContent) {
+      try {
+        const schema = JSON.parse(schemaEl.textContent);
+        mount(form.parentElement, { schema });
+      } catch (err) {
+        console.warn("[pd-log] schema parse failed", err);
+      }
+    }
+
+    const token = new URLSearchParams(window.location.search).get("token");
+    const stateLoading = document.getElementById("state-loading");
+    const stateError = document.getElementById("state-error");
+    const stateErrorMsg = document.getElementById("state-error-msg");
+    const stateContent = document.getElementById("state-content");
+    const memberName = document.getElementById("member-name");
+    const saveBtn = document.getElementById("save-btn");
+    const saveSpinner = document.getElementById("save-spinner");
+    const saveBtnLabel = document.getElementById("save-btn-label");
+    const errorBanner = document.getElementById("error-banner");
+    const errorMessage = document.getElementById("error-message");
+    const successBanner = document.getElementById("success-banner");
+
+    function showStateError(msg) {
+      if (stateLoading) stateLoading.classList.add("hidden");
+      if (stateError) stateError.classList.remove("hidden");
+      if (stateErrorMsg) stateErrorMsg.textContent = msg;
+    }
+
+    function showError(msg) {
+      if (successBanner) successBanner.classList.add("hidden");
+      if (errorMessage) errorMessage.textContent = msg;
+      if (errorBanner) {
+        errorBanner.classList.remove("hidden");
+        errorBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    function showSuccess() {
+      if (errorBanner) errorBanner.classList.add("hidden");
+      if (successBanner) {
+        successBanner.classList.remove("hidden");
+        successBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    function setSaving(saving) {
+      if (!saveBtn || !saveSpinner || !saveBtnLabel) return;
+      saveBtn.disabled = saving;
+      saveBtn.classList.toggle("opacity-70", saving);
+      saveBtn.classList.toggle("cursor-not-allowed", saving);
+      saveSpinner.classList.toggle("hidden", !saving);
+      saveBtnLabel.textContent = saving ? "Saving…" : "Save PD Log";
+    }
+
+    function collectEntries() {
+      if (!form) return [];
+      const rows = form.querySelectorAll("[data-repeatable-row]");
+      return Array.from(rows).map((row) => {
+        const get = (name) => {
+          const el = row.querySelector(`[name$=".${name}"]`);
+          return el ? el.value : "";
+        };
+        const hours = get("totalHours");
+        return {
+          dateCompleted: get("dateCompleted"),
+          activity: get("activity").trim(),
+          totalHours: hours === "" ? 0 : Number(hours),
+          provider: get("provider"),
+        };
+      });
+    }
+
+    saveBtn?.addEventListener("click", async () => {
+      errorBanner?.classList.add("hidden");
+      successBanner?.classList.add("hidden");
+
+      const entries = collectEntries();
+      if (entries.length === 0) { showError("Add at least one activity."); return; }
+      for (const e of entries) {
+        if (!e.dateCompleted || !e.activity || !e.totalHours || e.totalHours <= 0) {
+          showError("Fill in all required fields (date, activity, hours) for each row.");
+          return;
+        }
+      }
+
+      setSaving(true);
+      try {
+        const res = await fetch("/api/renew/pd-log", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, entries }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          showError(json.error ?? `Error ${res.status}`);
+          return;
+        }
+        showSuccess();
+      } catch {
+        showError("Network error. Please try again.");
+      } finally {
+        setSaving(false);
+      }
+    });
+
+    (async () => {
+      if (!token) {
+        showStateError("No token provided. Use the link from your renewal confirmation email.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/renew/pd-log?token=${encodeURIComponent(token)}`);
+        const json = await res.json();
+
+        if (res.status === 403) {
+          showStateError("Your payment has not been confirmed yet. Please check back after payment is complete.");
+          return;
+        }
+        if (res.status === 404) {
+          showStateError("Renewal record not found. Please check your link.");
+          return;
+        }
+        if (!res.ok) {
+          showStateError(json.error ?? `Error ${res.status}`);
+          return;
+        }
+
+        if (memberName) memberName.textContent = `${json.firstName} ${json.lastName} — ${json.renewalYear} renewal`;
+        stateLoading?.classList.add("hidden");
+        stateContent?.classList.remove("hidden");
+
+        // Hydrate rows from saved entries. The schema-driven form renders 1
+        // empty row by default; add N-1 more via the add button, then
+        // hydrate every row by field name.
+        const entries = Array.isArray(json.pdEntries) ? json.pdEntries : [];
+        if (entries.length > 1 && form) {
+          const addBtn = form.querySelector("[data-repeatable-add]");
+          for (let i = 1; i < entries.length; i++) addBtn?.click();
+        }
+        if (entries.length > 0 && form) {
+          const flat = {};
+          entries.forEach((e, i) => {
+            flat[`entries.${i}.dateCompleted`] = e.dateCompleted ?? "";
+            flat[`entries.${i}.activity`] = e.activity ?? "";
+            flat[`entries.${i}.totalHours`] = String(e.totalHours ?? "");
+            flat[`entries.${i}.provider`] = e.provider ?? "";
+          });
+          hydrateFromResponse(form, flat);
+        }
+      } catch {
+        showStateError("Failed to load your record. Please refresh the page.");
+      }
+    })();
+  </script>
+</BaseLayout>

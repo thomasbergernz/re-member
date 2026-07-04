@@ -1,0 +1,22 @@
+name: Fly Deploy Staging
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    name: Deploy staging
+    runs-on: ubuntu-latest
+    concurrency: deploy-staging
+# Self-disable until Phase 10. Gate on a repo VARIABLE, not a secret:
+    # the `secrets` context is not available in job-level `if`, so a
+    # `secrets.* != ''` guard evaluates empty and the job never runs even
+    # after the token is set. Prevents failed-run spam on a freshly-forked
+    # repo. Set repo var FLY_DEPLOY_ENABLED=true to enable deploys.
+    if: ${{ vars.FLY_DEPLOY_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --app remember-staging
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

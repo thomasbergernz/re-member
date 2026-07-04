@@ -1,0 +1,68 @@
+name: Bug report
+description: Something broke or behaved unexpectedly
+labels: ["bug", "triage"]
+body:
+  - type: dropdown
+    id: flow
+    attributes:
+      label: Which flow?
+      options:
+        - Basic/associate signup
+        - Advanced/professional application (wizard, uploads, resume link)
+        - Renewal (any tier)
+        - PD logging
+        - Payments / Stripe webhook
+        - Emails / notifications
+        - Google Sheets / Drive / Docs
+        - Health check / alerting
+        - Deployment / configuration
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open /renew/basic
+        2. Fill the form and submit
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Environment
+      options:
+        - Production deployment
+        - Staging deployment
+        - Local dev (npm run dev)
+        - Dry-run mode
+        - E2E stub mode (E2E_STUB=1)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: e.g. v0.1.0 or a commit SHA
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server logs, browser console, or Stripe webhook delivery response. Redact emails, tokens and keys.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This report contains no secrets, API keys, or member personal data
+          required: true

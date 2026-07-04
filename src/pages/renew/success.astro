@@ -1,0 +1,36 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+<BaseLayout title="Membership Renewed">
+  <div class="max-w-2xl mx-auto p-4 sm:p-8">
+    <div class="bg-white border border-gray-200 rounded-xl p-8 text-center">
+      <div class="w-16 h-16 bg-emerald-700 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Thank you!</h1>
+      <p id="success-message" class="text-gray-700 text-lg">Loading your renewal confirmation…</p>
+      <p class="text-sm text-gray-500 mt-4">
+        A receipt has been emailed to you by Stripe.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+
+    const successMessage = document.getElementById("success-message")!;
+
+    const msg = "Thanks for renewing your membership.";
+    if (!sessionId) {
+      successMessage.textContent = msg;
+    } else {
+      fetch(`/api/renew/session-info?session_id=${encodeURIComponent(sessionId)}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          successMessage.textContent = msg;
+        })
+        .catch(() => {
+          successMessage.textContent = msg;
+        });
+    }
+  </script>
+</BaseLayout>

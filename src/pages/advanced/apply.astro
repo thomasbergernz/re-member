@@ -1,0 +1,1395 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import FeedbackWidget from "../../components/FeedbackWidget.astro";
+import Step from "../../lib/forms/render/Step.astro";
+import { schema as advancedApplySchema, COMPETENCY_IDS } from "../../lib/forms/schemas/advancedApply";
+import advancedApplyContent from "../../lib/forms/schemas/advancedApply.content.json";
+
+const token = Astro.url.searchParams.get("token");
+---
+
+<BaseLayout
+  title="Professional Membership Application"
+  description="Apply for Professional Membership with Re:Member."
+>
+  <section class="bg-white border border-gray-200 rounded-xl p-4">
+    <a
+      href="https://www.example.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="inline-block mb-3 sm:mb-4"
+      aria-label="Re:Member — visit example.com"
+    >
+      <img
+        src="/logo.svg"
+        alt="Re:Member"
+        class="h-14 sm:h-20 w-auto"
+        width="357"
+        height="144"
+      />
+    </a>
+    <h1 class="text-2xl sm:text-4xl font-bold mb-1">Professional Membership</h1>
+    <p class="text-gray-600 m-0">
+      Complete all sections and upload required documents to apply.
+    </p>
+  </section>
+
+  <!-- Step Indicator -->
+  <div id="step-indicator" class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
+    <div class="flex justify-between items-center mb-3">
+      <span id="step-label" class="font-semibold">Step 1 of 8</span>
+      <span id="step-name" class="text-gray-600 text-sm"></span>
+    </div>
+    <div id="step-dots" class="grid grid-cols-4 sm:grid-cols-8 gap-2"></div>
+  </div>
+
+  <div
+    id="resume-link-warning"
+    class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4 hidden"
+  >
+    <h2 class="m-0 mb-2 text-base text-amber-900 font-semibold">Email not sent</h2>
+    <p class="m-0 text-sm text-amber-900">
+      We saved your application, but we could not send your resume email. Keep this link to continue later:
+      <a
+        id="resume-link-fallback"
+        class="block mt-2 break-all text-blue-700 underline"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+      ></a>
+    </p>
+  </div>
+
+  <!-- Email verification pending panel — shown after registration when the
+       server has emailed a resume link. The user must click the link to
+       prove they control the email address; only then does the form load. -->
+  <div
+    id="verify-email-panel"
+    class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4 hidden"
+  >
+    <h2 class="m-0 mb-2 text-base text-blue-900 font-semibold">Check your email</h2>
+    <p class="m-0 text-sm text-blue-900">
+      We've sent a link to <span id="verify-email-address" class="font-mono"></span>.
+      Click the link in that email to continue your application.
+    </p>
+    <p id="verify-email-resend-status" class="m-0 mt-2 text-sm hidden"></p>
+  </div>
+
+  <!-- Access link panel — visible once an applicant/token is known so they
+       can always grab the resume URL without checking email. -->
+  <div
+    id="access-link-panel"
+    class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden"
+  >
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div class="flex-1 min-w-0">
+        <h2 class="m-0 mb-1 text-base font-semibold">Your access link</h2>
+        <p class="m-0 text-sm text-gray-600">
+          Use this link to come back to your application. Copy it, or email it to yourself below.
+        </p>
+        <p
+          id="access-link-url"
+          class="m-0 mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-sm break-all font-mono select-all"
+        ></p>
+        <p id="access-link-status" class="m-0 mt-2 text-sm hidden"></p>
+      </div>
+      <div class="flex flex-col gap-2 sm:w-44 shrink-0">
+        <button
+          id="copy-access-link-btn"
+          type="button"
+          class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+        >
+          Copy link
+        </button>
+        <button
+          id="resend-access-link-btn"
+          type="button"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        >
+          Email me this link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registration (step 0 - shown when no token) -->
+  <section id="section-register" class="bg-white border border-gray-200 rounded-xl p-4 mt-4">
+    <h2 class="m-0 mb-4 text-xl">Start Your Application</h2>
+    <p class="text-gray-600 mb-4">
+      Enter your basic details to begin. You'll receive a unique link to resume your application.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label for="reg-firstName" class="block font-semibold mb-1.5">First name</label>
+        <input id="reg-firstName" name="firstName" type="text" placeholder="Jane" autocomplete="given-name"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg" />
+      </div>
+      <div>
+        <label for="reg-lastName" class="block font-semibold mb-1.5">Last name</label>
+        <input id="reg-lastName" name="lastName" type="text" placeholder="Doe" autocomplete="family-name"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg" />
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <label for="reg-phone" class="block font-semibold mb-1.5">Phone number</label>
+      <input id="reg-phone" name="phone" type="tel" placeholder="+1 555 123 4567" autocomplete="tel"
+        class="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg" />
+    </div>
+
+    <div class="mt-3">
+      <label for="reg-email" class="block font-semibold mb-1.5">Email Address</label>
+      <input id="reg-email" name="email" type="email" placeholder="jane@example.com" autocomplete="email"
+        class="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg" />
+    </div>
+
+    <button id="register-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg mt-6 w-full">
+      Start Application
+    </button>
+
+    <p id="register-message" class="mt-4 text-gray-600 hidden"></p>
+  </section>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-8 flex flex-col items-center gap-4 shadow-xl">
+      <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-gray-600 font-medium">Loading your application...</p>
+    </div>
+  </div>
+
+  <!-- Steps 1-7: schema-driven render (Phase J1). Step 8 (uploads) stays
+       inline for now — J3 will wire form-client attachUploadLock + the
+       per-doc-type multi-file UI. Section IDs preserved so the existing
+       showStep() nav works unchanged. Wrapped in a <form> so form-client
+       attachAutosaveQueue (Phase J2) can read FormData(form). -->
+  <form id="professional-apply-form" data-schema-driven data-schema-id={advancedApplySchema.id} novalidate>
+    {advancedApplySchema.steps.slice(0, 7).map((step, i) => (
+      <section id={`section-${i + 1}`} class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
+        <Step step={step} content={advancedApplyContent} values={{}} />
+        <div class="mt-6 flex gap-3 justify-end">
+          {i > 0 && (
+            <button class="bg-white border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg cursor-pointer" data-goto={i}>Back</button>
+          )}
+          <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl" data-next={i + 2}>
+            {i === 6 ? "Continue to Documents" : "Continue"}
+          </button>
+        </div>
+      </section>
+    ))}
+  </form>
+
+  <!-- Step 8: Document Upload -->
+  <section id="section-8" class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
+    <h2 class="m-0 mb-4 text-xl">Document Upload</h2>
+    <p class="text-gray-600 mb-6 text-sm">Upload your supporting documents below. You can upload multiple files per category.</p>
+
+    <div
+      id="upload-wait-banner"
+      class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-900 rounded-lg text-sm flex items-start gap-2"
+      role="status"
+    >
+      <span aria-hidden="true">⏳</span>
+      <span>
+        <strong>Please wait for each file to finish uploading before selecting the next one.</strong>
+        Uploads run one at a time so the system can keep track of your documents correctly.
+      </span>
+    </div>
+
+    <div id="progress-info" class="mb-6 p-4 bg-gray-50 rounded-lg">
+      <p class="m-0 mb-2 font-semibold">Documents: <span id="upload-count">0</span> / 6 required categories</p>
+      <p id="upload-status-text" class="m-0 text-gray-600 text-sm"></p>
+    </div>
+
+    <div id="document-list" class="flex flex-col gap-4"></div>
+
+    <div id="payment-section" class="mt-8 pt-6 border-t border-gray-200">
+      <button id="proceed-payment-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg w-full" disabled>
+        Complete all sections to continue
+      </button>
+      <p id="payment-error-msg" class="hidden text-red-700 text-sm mt-2"></p>
+    </div>
+
+    <div class="mt-6 flex gap-3 justify-start">
+      <button class="bg-white border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg cursor-pointer" data-goto="7">Back</button>
+    </div>
+  </section>
+
+  <!-- Already Paid -->
+  <section id="paid-section" class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
+    <h2 class="m-0 mb-4 text-xl">Application Complete</h2>
+    <p>Your Professional Membership application has been completed. Thank you!</p>
+    <p class="mt-4">
+      <a href="https://example.com" class="text-blue-600 hover:text-blue-700">Return to Re:Member website</a>
+    </p>
+  </section>
+
+  <!-- Error -->
+  <section id="error-section" class="bg-white border border-gray-200 rounded-xl p-4 mt-4 hidden">
+    <h2 class="m-0 mb-4 text-amber-800">Error</h2>
+    <p id="error-message"></p>
+    <a href="/advanced/apply" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg inline-block mt-4">Start New Application</a>
+  </section>
+
+  <FeedbackWidget />
+
+  <script id="form-schema" type="application/json" set:html={JSON.stringify(advancedApplySchema)}></script>
+  <script id="competency-order" type="application/json" set:html={JSON.stringify(COMPETENCY_IDS)}></script>
+
+  <script>
+    // @ts-nocheck — module script; DOM glue.
+    import { mount, attachAutosaveQueue } from "../../lib/forms/render/form-client";
+
+    const form = document.querySelector("form[data-schema-driven]");
+    const schemaEl = document.getElementById("form-schema");
+    const orderEl = document.getElementById("competency-order");
+    if (form && schemaEl?.textContent && orderEl?.textContent) {
+      try {
+        const schema = JSON.parse(schemaEl.textContent);
+        const competencyOrder = JSON.parse(orderEl.textContent);
+        mount(form.parentElement, { schema });
+
+        // Phase J2: form-client attachAutosaveQueue replaces the inline
+        // queueFormSave for background saves. The Continue/Back click handlers
+        // still await __flushAutosave() to ensure pending saves complete before
+        // navigating. debounceMs 800ms prevents spamming during fast typing.
+        const autosave = attachAutosaveQueue(form, {
+          endpoint: "/api/advanced/apply",
+          serialize: (fd) => JSON.stringify(window.__buildPayload__(fd, window.__token__ || "")),
+          contentType: "application/json",
+          debounceMs: 800,
+          trigger: "input",
+          onSuccess: (data) => {
+            if (data?.applicantId) {
+              window.__applicantId__ = data.applicantId;
+            }
+            if (data?.resumeLink) {
+              const nextToken = (data.resumeLink.match(/[?&]token=([^&]+)/) || [])[1];
+              if (nextToken) {
+                window.__token__ = decodeURIComponent(nextToken);
+              }
+            }
+          },
+        });
+
+        window.__flushAutosave__ = autosave.flush;
+      } catch (err) {
+        console.warn("[apply] autosave setup failed", err);
+      }
+    }
+  </script>
+</BaseLayout>
+
+<script is:inline define:vars={{ token, advancedApplySchema }}>
+  const STEPS = [
+    { id: "section-register", label: "Start" },
+    { id: "section-1", label: "About You" },
+    { id: "section-2", label: "Training" },
+    { id: "section-3", label: "Experience" },
+    { id: "section-4", label: "Requirements" },
+    { id: "section-5", label: "Competencies" },
+    { id: "section-6", label: "Referees" },
+    { id: "section-7", label: "Declarations" },
+    { id: "section-8", label: "Documents" },
+  ];
+
+  // Phase J3: doc types are now derived from the schema's uploads.docTypes —
+  // not hardcoded org-specific labels. Schema is single source of truth.
+  // Per-docType descriptions (rendered with HTML allowed) are still inline
+  // here because the schema's docTypes list doesn't carry HTML — pure data.
+  const DOC_DESCRIPTIONS = {
+    training: "Evidence of completed training",
+    ethics: "Signed Re:Member Code of Ethics and Scope of Practice",
+    criminal: "Criminal background check — check your local requirements",
+    planning_cert: "4 modules completed",
+    specialist_training: "Specialist training provider, 3 modules completed",
+    fundamentals: "Accredited training provider, 4 online modules",
+    insurance: "Optional but recommended",
+  };
+  const ALL_DOC_TYPES = (advancedApplySchema.uploads?.docTypes ?? []).map((d) => ({
+    id: d.id,
+    label: d.label,
+    required: d.required,
+    description: DOC_DESCRIPTIONS[d.id] ?? "",
+  }));
+  const REQUIRED_DOC_TYPES = ALL_DOC_TYPES.filter((d) => d.required);
+  const MAX_UPLOAD_SIZE_MB = 50;
+  const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+
+  const COMPETENCIES = [
+    { label: "Effective Communication Skills", description: "Practice active listening, ask open-ended questions, and hold space for a client's concerns without judgment." },
+    { label: "Advocacy & Empowerment", description: "Support clients in navigating complex systems and processes, ensuring their voices are heard." },
+    { label: "Understanding of Cultural & Community Diversity", description: "Respect and support diverse traditions, beliefs, and cultural practices among the clients you serve." },
+    { label: "Shows initiative", description: "The ability to anticipate what a client's needs might be and prepare accordingly. Know how to seek information for what you do not know." },
+    { label: "Compassionate Presence", description: "Leave your own concerns at the door. Bring a quiet, calm presence always. Follow the lead of the client and their support network." },
+    { label: "Ongoing Education & Development", description: "Commit to continuous learning in your practice area, including staying informed about legal and ethical considerations." },
+    { label: "Self-Care & Professional Boundaries", description: "Maintain personal well-being and set healthy emotional boundaries to sustain this work long-term. Know when to step back if your own issues will affect your work." },
+    { label: "Core Subject-Matter Knowledge", description: "Be well-versed in the frameworks, options, and resources relevant to your area of practice." },
+    { label: "Business acumen", description: "Provide a contractual agreement for services up front with clients, be willing to offer a sliding scale of fees, and invoice in a timely manner." },
+    { label: "Networking & Referrals", description: "Connect clients with additional support, such as counsellors, specialists, or community resources." },
+    { label: "Holistic support", description: "Provide emotional, cultural, practical, and social support throughout a client's engagement, while helping them work toward their goals." },
+    { label: "Client journey advocacy and empowerment", description: "Coach and support clients to navigate the systems relevant to their situation, physically attending appointments where helpful." },
+    { label: "Long-Term Planning & Review", description: "Facilitate storytelling, memory-sharing, planning sessions, or other reflective projects that support a client's long-term goals." },
+    { label: "Structured Advance Planning", description: "Work with clients to create a plan that aligns with their values, beliefs, and preferences. Assist clients in discussing and documenting their wishes." },
+    { label: "Transition Planning & Support", description: "Help plan for significant milestones or transitions, ensuring a supportive environment throughout." },
+    { label: "Practical Assistance", description: "Be willing to assist with practical tasks if required." },
+    { label: "Milestone & Event Planning", description: "Help clients explore meaningful ways to mark significant events or milestones." },
+    { label: "Handover & Closing Practices", description: "Be knowledgeable and comfortable supporting the practical steps involved in closing out an engagement." },
+    { label: "Transition & Support Awareness", description: "Offer compassionate support and connect to resources during periods of change, understanding different ways people process transitions." },
+    { label: "Interdisciplinary Collaboration", description: "Work alongside other professionals and community organisations relevant to the client's needs." },
+    { label: "Mentorship", description: "Be willing to mentor other Re:Member members from time to time where appropriate." },
+  ];
+
+  let currentStep = 0;
+  let applicantId = null;
+  // Phase J1: courses, experiences, competencyStates state vars deleted —
+  // the form is schema-driven; saveFormData (J2 territory) will read directly
+  // from FormData(form) instead of in-memory state.
+  let stepCompletion = {};  // step index -> true if completed
+
+  function ensureDocsUploadedStore() {
+    if (!window.__docsUploaded__ || typeof window.__docsUploaded__ !== "object") {
+      window.__docsUploaded__ = {};
+    }
+    return window.__docsUploaded__;
+  }
+
+  function markStepComplete(stepIdx) {
+    // Token-based resume: step 0 is always "complete" since data was pre-filled server-side
+    if (stepIdx === 0 && token) { stepCompletion[0] = true; updateDots(); return; }
+    if (validateStep(stepIdx)) {
+      stepCompletion[stepIdx] = true;
+      updateDots();
+    }
+  }
+  function isStepComplete(stepIdx) { return !!stepCompletion[stepIdx]; }
+  function completedCount() { return Object.keys(stepCompletion).length; }
+
+  function setResumeLinkWarning(resumeLink) {
+    const warning = document.getElementById("resume-link-warning");
+    const link = document.getElementById("resume-link-fallback");
+    if (!warning || !link) return;
+
+    if (!resumeLink) {
+      warning.classList.add("hidden");
+      link.setAttribute("href", "#");
+      link.textContent = "";
+      return;
+    }
+
+    link.setAttribute("href", resumeLink);
+    link.textContent = resumeLink;
+    warning.classList.remove("hidden");
+  }
+
+  function showVerifyEmailPanel(email, emailSent, emailError) {
+    const panel = document.getElementById("verify-email-panel");
+    const addr = document.getElementById("verify-email-address");
+    const resend = document.getElementById("verify-email-resend-status");
+    if (!panel || !addr) return;
+
+    addr.textContent = email || "";
+    panel.classList.remove("hidden");
+
+    if (resend) {
+      if (emailSent === false) {
+        const detail = emailError ? ` (Server: ${emailError})` : "";
+        resend.textContent = `We couldn't send the email just now. Please try again in a minute, or contact membership@example.com.${detail}`;
+        resend.classList.remove("hidden");
+      } else {
+        resend.classList.add("hidden");
+        resend.textContent = "";
+      }
+    }
+  }
+
+  function buildResumeLinkFromToken(resumeToken) {
+    if (!resumeToken) return "";
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("token", resumeToken);
+      return `${u.origin}${u.pathname}?${u.searchParams.toString()}`;
+    } catch {
+      return `${window.location.origin}/advanced/apply?token=${encodeURIComponent(resumeToken)}`;
+    }
+  }
+
+  function showAccessLinkPanel(resumeLink) {
+    const panel = document.getElementById("access-link-panel");
+    const urlEl = document.getElementById("access-link-url");
+    if (!panel || !urlEl) return;
+    if (!resumeLink) {
+      panel.classList.add("hidden");
+      urlEl.textContent = "";
+      return;
+    }
+    urlEl.textContent = resumeLink;
+    panel.classList.remove("hidden");
+    setAccessLinkStatus("", false);
+  }
+
+  function setAccessLinkStatus(message, isError) {
+    const status = document.getElementById("access-link-status");
+    if (!status) return;
+    if (!message) {
+      status.textContent = "";
+      status.classList.add("hidden");
+      return;
+    }
+    status.textContent = message;
+    status.className = `m-0 mt-2 text-sm ${isError ? "text-red-700" : "text-emerald-700"}`;
+    status.classList.remove("hidden");
+  }
+
+  async function copyAccessLink() {
+    const urlEl = document.getElementById("access-link-url");
+    const link = urlEl?.textContent || "";
+    if (!link) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "absolute";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setAccessLinkStatus("Link copied to clipboard.", false);
+    } catch {
+      setAccessLinkStatus("Could not copy. Please copy the link manually.", true);
+    }
+  }
+
+  async function resendAccessLink() {
+    const tokenValue = window.__token__ || token || "";
+    if (!tokenValue) {
+      setAccessLinkStatus("No active session. Please refresh the page.", true);
+      return;
+    }
+    const btn = document.getElementById("resend-access-link-btn");
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = true;
+      btn.dataset.originalLabel = btn.dataset.originalLabel || btn.textContent;
+      btn.textContent = "Sending...";
+    }
+    setAccessLinkStatus("Sending the link to your email...", false);
+    try {
+      const res = await fetch("/api/advanced/resend-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: tokenValue }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setAccessLinkStatus("Sent! Check your inbox (and spam folder).", false);
+      } else {
+        setAccessLinkStatus(data.error || "Could not send the email. Please try again.", true);
+      }
+    } catch {
+      setAccessLinkStatus("Network error. Please try again.", true);
+    } finally {
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalLabel || "Email me this link";
+      }
+    }
+  }
+
+  function extractTokenFromResumeLink(resumeLink) {
+    if (!resumeLink) return "";
+    try {
+      const parsed = new URL(resumeLink, window.location.origin);
+      return parsed.searchParams.get("token") || "";
+    } catch {
+      const fallback = resumeLink.split("token=")[1] || "";
+      return fallback.split("&")[0];
+    }
+  }
+
+  function syncTokenToUrl(resumeToken) {
+    if (!resumeToken) return;
+    const current = new URL(window.location.href);
+    current.searchParams.set("token", resumeToken);
+    const nextUrl = `${current.pathname}${current.search}${current.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }
+
+  function updateDots() {
+    const dotsContainer = document.getElementById("step-dots");
+    if (!dotsContainer) return;
+    dotsContainer.innerHTML = "";
+    for (let i = 1; i <= 8; i++) {
+      const dot = document.createElement("button");
+      dot.className = "flex flex-col items-center gap-1 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-300";
+      const isCurrent = i === currentStep;
+      const isDone = isStepComplete(i);
+      dot.innerHTML = `
+        <div class="w-8 h-2 rounded-full transition-colors duration-200 ${isDone ? "bg-emerald-700" : isCurrent ? "bg-blue-600" : "bg-gray-200"}"></div>
+        <span class="text-xs font-medium ${isDone ? "text-emerald-700" : isCurrent ? "text-blue-600" : "text-gray-400"}">${STEPS[i]?.label || ""}</span>
+      `;
+      dot.addEventListener("click", () => showStep(i));
+      dotsContainer.appendChild(dot);
+    }
+  }
+
+  function showStep(n) {
+    // Auto-mark previous step complete when advancing
+    if (n > currentStep && currentStep > 0) markStepComplete(currentStep);
+
+    document.querySelectorAll("section").forEach(s => s.classList.add("hidden"));
+    const section = document.getElementById(STEPS[n].id);
+    if (section) section.classList.remove("hidden");
+
+    const indicator = document.getElementById("step-indicator");
+    if (indicator) {
+      indicator.classList.toggle("hidden", n === 0);
+      document.getElementById("step-label").textContent = `Step ${Math.min(n, 8)} of 8`;
+      document.getElementById("step-name").textContent = STEPS[n]?.label || "";
+      updateDots();
+    }
+
+    currentStep = n;
+    if (n === 8) renderDocuments();
+  }
+
+  // Phase J1: buildCompetencyGrid, addCourseRow, addExperienceRow deleted —
+  // their inline HTML is now schema-driven (FieldRenderer handles repeatable
+  // + grid). The addCourseBtn / add-experience-btn / competencies-grid DOM
+  // ids no longer exist; form-client's attachRepeatable handles add/remove
+  // for the schema-driven repeatables instead.
+
+  document.getElementById("copy-access-link-btn")?.addEventListener("click", copyAccessLink);
+  document.getElementById("resend-access-link-btn")?.addEventListener("click", resendAccessLink);
+
+  let saveQueue = Promise.resolve();
+  function queueFormSave() {
+    saveQueue = saveQueue.then(() => saveFormData()).catch(() => {});
+    return saveQueue;
+  }
+
+  // Tracks upload operations in flight so we can disable every upload/delete
+  // button while any upload is running. Prevents users from firing concurrent
+  // uploads (different categories) which would race on the server-side doc
+  // count read-modify-write.
+  const uploadsInFlight = new Set();
+  function refreshUploadLockUi() {
+    const locked = uploadsInFlight.size > 0;
+    document.querySelectorAll(".upload-btn").forEach(btn => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const docId = btn.dataset.doc;
+      // Don't re-enable a button that is showing "Uploading... N%" — its
+      // own docId is in uploadsInFlight and will be cleared on completion.
+      if (locked && docId && !uploadsInFlight.has(docId)) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+      } else if (!locked) {
+        // Only restore buttons whose docId isn't currently uploading
+        // (those are managed by setUploadButtonState/resetUploadButtonState).
+        if (docId && !uploadsInFlight.has(docId)) {
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.classList.remove("opacity-60", "cursor-not-allowed");
+        }
+      }
+    });
+    document.querySelectorAll(".delete-file-btn").forEach(btn => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      if (locked) {
+        btn.disabled = true;
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+      } else if (btn.textContent !== "...") {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60", "cursor-not-allowed");
+      }
+    });
+  }
+
+  function setContinueButtonLoading(btn, isLoading) {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    if (isLoading) {
+      if (!btn.dataset.originalLabel) btn.dataset.originalLabel = btn.innerHTML;
+      btn.dataset.loading = "true";
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      btn.classList.add("opacity-70", "cursor-not-allowed", "pointer-events-none");
+      btn.innerHTML = `
+        <span class="inline-flex items-center gap-2">
+          <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+          <span>Saving...</span>
+        </span>
+      `;
+      return;
+    }
+
+    if (btn.dataset.originalLabel) btn.innerHTML = btn.dataset.originalLabel;
+    btn.disabled = false;
+    delete btn.dataset.loading;
+    btn.removeAttribute("aria-busy");
+    btn.classList.remove("opacity-70", "cursor-not-allowed", "pointer-events-none");
+  }
+
+  /**
+   * Phase J2: saveFormData now reads FormData(form) directly. The schema-driven
+   * render emits input `name` attributes matching the schema field names
+   * (with dotted paths for nested groups + repeatables). buildPayload below
+   * flattens groups, serialises repeatables as JSON arrays, and serialises
+   * grids as JSON strings — matching the `/api/advanced/apply` POST contract.
+   */
+  function buildPayload(fd) {
+    const activeToken = window.__token__ || token;
+    const flat = { token: activeToken || "", declarationSignedAt: new Date().toISOString() };
+
+    // Pass 1: read all FormData entries. Dotted names flatten to last segment
+    // (matches server contract — referees.referee1Name → referee1Name).
+    for (const [key, value] of fd.entries()) {
+      const flatKey = key.includes(".") ? key.split(".").pop() : key;
+      flat[flatKey] = typeof value === "string" ? value : "";
+    }
+
+    // Pass 2: serialise repeatables as JSON arrays of objects.
+    flat.qualifications = JSON.stringify(serializeRepeatable(fd, "qualifications"));
+    flat.experience = JSON.stringify(serializeRepeatable(fd, "experience"));
+
+    // Pass 3: serialise furtherRequirements grid as object keyed by column id.
+    // FieldRenderer emits name="furtherRequirements.{col}" value="true" per checked column.
+    const furtherRequirementsObj = {};
+    for (const [key, value] of fd.entries()) {
+      if (key.startsWith("furtherRequirements.")) {
+        const col = key.slice("furtherRequirements.".length);
+        furtherRequirementsObj[col] = value === "true" ? "YES" : "NO";
+      }
+    }
+    flat.furtherRequirements = JSON.stringify(furtherRequirementsObj);
+
+    // Pass 4: serialise coreCompetencies grid as JSON array in column order.
+    // Order is read from a hidden <script type="application/json"> populated
+    // server-side from COMPETENCY_IDS so the array matches the sheet contract.
+    const competencyOrder = window.__competencyOrder__ || [];
+    flat.coreCompetencies = JSON.stringify(
+      competencyOrder.map((id) => fd.get(`coreCompetencies.${id}`) === "true" ? "yes" : "no"),
+    );
+
+    // Pass 5: declarations — checkbox value="true" → "TRUE"/"" for the sheet.
+    const declKeys = [
+      "declarationAccuracy", "declarationEthics", "declarationScope",
+      "declarationMemberServices", "declarationInterview",
+      "declarationProfessionalDev", "declarationCriminalCheck",
+      "declarationMeetings",
+    ];
+    for (const k of declKeys) {
+      flat[k] = flat[k] === "true" ? "TRUE" : "";
+    }
+
+    return flat;
+  }
+
+  function serializeRepeatable(fd, fieldName) {
+    // fd has entries like "qualifications.0.name", "qualifications.1.provider".
+    // Group by index, build array of objects in index order.
+    const rows = new Map();
+    const re = new RegExp(`^${fieldName}\\.(\\d+)\\.(.+)$`);
+    for (const [key, value] of fd.entries()) {
+      const m = key.match(re);
+      if (!m) continue;
+      const idx = Number(m[1]);
+      const subKey = m[2];
+      if (!rows.has(idx)) rows.set(idx, {});
+      rows.get(idx)[subKey] = value;
+    }
+    return Array.from(rows.keys()).sort((a, b) => a - b).map((k) => rows.get(k));
+  }
+
+  async function saveFormData() {
+    const activeToken = window.__token__ || token;
+    if (!window.__applicantId__ && !activeToken) return;
+
+    const form = document.getElementById("professional-apply-form");
+    if (!form) return;
+
+    try {
+      const fd = new FormData(form);
+      const payload = buildPayload(fd);
+      const response = await fetch("/api/advanced/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.applicantId) {
+        applicantId = data.applicantId;
+        window.__applicantId__ = data.applicantId;
+      }
+      if (data.resumeLink) {
+        const nextToken = extractTokenFromResumeLink(data.resumeLink) || activeToken;
+        if (nextToken) {
+          window.__token__ = nextToken;
+          syncTokenToUrl(nextToken);
+        }
+      }
+    } catch {}
+  }
+
+  // Phase J2: expose helpers on window so the module script (form-client
+  // attachAutosaveQueue) can call them with the same payload shape that
+  // saveFormData uses. Both share window.__buildPayload__.
+  window.__buildPayload__ = buildPayload;
+  window.__serializeRepeatable__ = serializeRepeatable;
+
+  document.querySelectorAll("[data-next]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.loading === "true") return;
+      const nextStep = parseInt(btn.dataset.next, 10);
+      if (Number.isNaN(nextStep)) return;
+
+      setContinueButtonLoading(btn, true);
+      try {
+        saveStepData(currentStep);
+        await queueFormSave();
+        showStep(nextStep);
+        await new Promise(resolve => requestAnimationFrame(() => resolve()));
+      } finally {
+        setContinueButtonLoading(btn, false);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-goto]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await queueFormSave();
+      showStep(parseInt(btn.dataset.goto));
+    });
+  });
+
+  function validateStep(n) {
+    if (n === 0) {
+      const f = document.getElementById("reg-firstName").value.trim();
+      const l = document.getElementById("reg-lastName").value.trim();
+      const e = document.getElementById("reg-email").value.trim();
+      if (!f || !l || !e) { alert("Please fill in your name and email."); return false; }
+      return true;
+    }
+    if (n === 1) return true;
+    if (n === 2) return true;
+    if (n === 4) {
+      const required = ["agreeMemberServices", "agreeInterview", "commitProfessionalDev", "listDirectory", "provideCriminalCheck", "attendMeetings", "workRemotely"];
+      for (const id of required) {
+        const el = document.getElementById(id);
+        if (el && !el.checked) {
+          alert("Please answer all required questions.");
+          return false;
+        }
+      }
+      return true;
+    }
+    if (n === 5) return true;
+    if (n === 6) {
+      const fields = ["ref1Name", "ref1Role", "ref1Email", "ref1Phone", "ref2Name", "ref2Role", "ref2Email", "ref2Phone"];
+      for (const id of fields) {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) {
+          alert("Please fill in all referee fields.");
+          return false;
+        }
+      }
+      return true;
+    }
+    if (n === 7) {
+      const decls = ["declAccuracy", "declEthics", "declScope", "declMemberServices", "declInterview", "declProfessionalDev", "declCriminalCheck", "declMeetings"];
+      for (const id of decls) {
+        const el = document.getElementById(id);
+        if (el && !el.checked) {
+          alert("Please confirm all declarations to proceed.");
+          return false;
+        }
+      }
+      return true;
+    }
+    return true;
+  }
+
+  function saveStepData(n) {}
+
+  function renderDocuments() {
+    const uploaded = ensureDocsUploadedStore();
+    const list = document.getElementById("document-list");
+    list.innerHTML = "";
+
+    let requiredComplete = 0;
+    ALL_DOC_TYPES.forEach(doc => {
+      const files = uploaded[doc.id] || [];
+      const isRequired = doc.required;
+      const isUploaded = files.length > 0;
+      if (isRequired && isUploaded) requiredComplete++;
+
+      const item = document.createElement("div");
+      const borderColor = isUploaded ? "border-emerald-700" : "border-gray-200";
+      const bgColor = isUploaded ? "bg-emerald-50" : "bg-white";
+      item.className = `p-4 border rounded-lg ${borderColor} ${bgColor}`;
+
+      let filesHtml = "";
+      files.forEach(f => {
+        filesHtml += `<div class="flex justify-between items-center py-2 border-b border-gray-200">
+          <div class="flex items-center gap-2">
+            <span class="text-sm">${f.filename}</span>
+            <span class="text-xs text-gray-500">${new Date(f.uploadedAt).toLocaleDateString()}</span>
+          </div>
+          <button class="delete-file-btn px-2 py-1 border border-amber-700 text-amber-800 rounded text-xs font-medium bg-white cursor-pointer"
+            data-fileid="${f.fileId}" data-doctype="${doc.id}">Delete</button>
+        </div>`;
+      });
+
+      const badgeBg = isUploaded ? "bg-emerald-700" : "bg-gray-100";
+      const badgeColor = isUploaded ? "text-white" : "text-gray-600";
+      item.innerHTML = `
+        <div class="flex justify-between items-center mb-3">
+          <div>
+            <p class="font-semibold m-0">${doc.label} ${isRequired ? "*" : "(optional)"}</p>
+            <p class="m-0 mt-1 text-gray-600 text-sm">${doc.description}</p>
+          </div>
+          <span class="px-2 py-1 rounded text-xs font-semibold ${badgeBg} ${badgeColor}">${isUploaded ? files.length + " file(s)" : "Required"}</span>
+        </div>
+        ${filesHtml}
+        <div class="mt-3">
+          <input type="file" id="file-${doc.id}" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx" class="hidden" />
+          <button class="upload-btn px-4 py-2 border border-blue-600 text-blue-600 rounded-md bg-white text-sm font-medium cursor-pointer hover:bg-blue-50"
+            data-doc="${doc.id}">${isUploaded ? "Upload More" : "Choose File"}</button>
+        </div>`;
+      list.appendChild(item);
+    });
+
+    document.getElementById("upload-count").textContent = requiredComplete;
+    document.getElementById("upload-status-text").textContent =
+      requiredComplete === REQUIRED_DOC_TYPES.length
+        ? "All required documents uploaded!"
+        : `${REQUIRED_DOC_TYPES.length - requiredComplete} category(ies) remaining`;
+
+    const paymentBtn = document.getElementById("proceed-payment-btn");
+    if (requiredComplete === REQUIRED_DOC_TYPES.length) {
+      paymentBtn.disabled = false;
+      paymentBtn.textContent = "Proceed to Payment";
+      paymentBtn.onclick = goToPayment;
+    }
+
+    setupUploadHandlers();
+    setupDeleteHandlers();
+    refreshUploadLockUi();
+  }
+
+  function setupUploadHandlers() {
+    const statusText = document.getElementById("upload-status-text");
+
+    function setStatusMessage(message, isError = false) {
+      if (!statusText) return;
+      statusText.textContent = message;
+      statusText.className = isError
+        ? "m-0 text-sm text-red-700"
+        : "m-0 text-gray-600 text-sm";
+    }
+
+    function setUploadButtonState(docId, text, disabled) {
+      const uploadBtn = document.querySelector(`.upload-btn[data-doc="${docId}"]`);
+      if (!(uploadBtn instanceof HTMLButtonElement)) return;
+      uploadBtn.textContent = text;
+      uploadBtn.disabled = disabled;
+    }
+
+    function resetUploadButtonState(docId) {
+      const existingUploads = (ensureDocsUploadedStore()[docId] || []).length;
+      setUploadButtonState(docId, existingUploads > 0 ? "Upload More" : "Choose File", false);
+    }
+
+    function parseJsonSafely(raw) {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+
+    function uploadFileBinary({ uploadToken, docId, file, onProgress }) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/advanced/upload-file");
+        xhr.responseType = "text";
+        xhr.timeout = 300000;
+
+        xhr.setRequestHeader("content-type", "application/octet-stream");
+        xhr.setRequestHeader("x-upload-token", uploadToken);
+        xhr.setRequestHeader("x-upload-doc-type", docId);
+        xhr.setRequestHeader("x-upload-filename", encodeURIComponent(file.name));
+        xhr.setRequestHeader("x-upload-mime-type", file.type || "application/octet-stream");
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable || typeof onProgress !== "function") return;
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        };
+
+        xhr.onerror = () => reject(new Error("Network error during upload."));
+        xhr.ontimeout = () => reject(new Error("Upload timed out. Please try again."));
+        xhr.onload = () =>
+          resolve({
+            status: xhr.status,
+            body: xhr.responseText || "",
+          });
+
+        xhr.send(file);
+      });
+    }
+    document.querySelectorAll(".upload-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const docId = btn.dataset.doc;
+        document.getElementById(`file-${docId}`).click();
+      });
+    });
+
+    document.querySelectorAll("input[type=file]").forEach(input => {
+      input.addEventListener("change", async (e) => {
+        const fileInput = e.target;
+        const docId = fileInput.id.replace("file-", "");
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        if (uploadsInFlight.size > 0) {
+          // Another upload is in flight; reject the new selection and
+          // remind the user to wait.
+          setStatusMessage("Please wait for the current upload to finish before adding another file.", true);
+          alert("Please wait for the current upload to finish before adding another file.");
+          fileInput.value = "";
+          return;
+        }
+        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+          const message = `File size exceeds ${MAX_UPLOAD_SIZE_MB}MB limit.`;
+          setStatusMessage(message, true);
+          alert(message);
+          fileInput.value = "";
+          return;
+        }
+
+        const uploadToken = window.__token__ || token || "";
+        if (!uploadToken) {
+          const message = "Missing upload session token. Refresh and try again.";
+          setStatusMessage(message, true);
+          alert(message);
+          fileInput.value = "";
+          return;
+        }
+
+        uploadsInFlight.add(docId);
+        refreshUploadLockUi();
+        setUploadButtonState(docId, "Uploading... 0%", true);
+        setStatusMessage(`Uploading ${file.name}... 0%`, false);
+
+        try {
+          const response = await uploadFileBinary({
+            uploadToken,
+            docId,
+            file,
+            onProgress: (percent) => {
+              setUploadButtonState(docId, `Uploading... ${percent}%`, true);
+              setStatusMessage(`Uploading ${file.name}... ${percent}%`, false);
+            },
+          });
+          const data = parseJsonSafely(response.body) || {};
+          if (response.status >= 200 && response.status < 300 && data.success) {
+            const uploadedStore = ensureDocsUploadedStore();
+            if (!uploadedStore[docId]) uploadedStore[docId] = [];
+            uploadedStore[docId].push({
+              fileId: data.fileId || "",
+              filename: data.originalFilename || file.name,
+              uploadedAt: data.uploadedAt || new Date().toISOString()
+            });
+            setStatusMessage(`Uploaded ${file.name} successfully.`, false);
+            renderDocuments();
+            return;
+          }
+
+          const serverError = data.error || `Upload failed with status ${response.status}.`;
+          const details = [];
+          if (data.code) details.push(`Code: ${data.code}`);
+          if (data.requestId) details.push(`Request ID: ${data.requestId}`);
+          const message = details.length
+            ? `${serverError} (${details.join(", ")})`
+            : serverError;
+          setStatusMessage(message, true);
+          alert(message);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Upload failed.";
+          setStatusMessage(message, true);
+          alert(message);
+        } finally {
+          uploadsInFlight.delete(docId);
+          resetUploadButtonState(docId);
+          refreshUploadLockUi();
+          fileInput.value = "";
+        }
+      });
+    });
+  }
+
+  function setupDeleteHandlers() {
+    document.querySelectorAll(".delete-file-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const fileId = btn.dataset.fileid;
+        const docType = btn.dataset.doctype;
+        if (!confirm("Delete this file?")) return;
+        btn.textContent = "...";
+        btn.disabled = true;
+
+        try {
+          const res = await fetch("/api/advanced/delete-file", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileId, token: window.__token__ || token })
+          });
+          const data = await res.json();
+          if (data.success) {
+            const uploadedStore = ensureDocsUploadedStore();
+            uploadedStore[docType] = (uploadedStore[docType] || []).filter(f => f.fileId !== fileId);
+            renderDocuments();
+          } else {
+            btn.textContent = "Delete";
+            btn.disabled = false;
+            alert(data.error || "Delete failed");
+          }
+        } catch {
+          btn.textContent = "Delete";
+          btn.disabled = false;
+          alert("Delete failed");
+        }
+      });
+    });
+  }
+
+  async function goToPayment() {
+    const btn = document.getElementById("proceed-payment-btn");
+    const errEl = document.getElementById("payment-error-msg");
+
+    function setPaymentError(msg) {
+      if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    }
+    function clearPaymentError() {
+      if (errEl) { errEl.textContent = ""; errEl.classList.add("hidden"); }
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Connecting to payment...";
+    clearPaymentError();
+
+    const maxAttempts = 3;
+    const backoffMs = [1000, 2000, 4000];
+    let lastError = "Failed to create payment session. Please try again.";
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch("/api/advanced/upload-complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: window.__token__ || token })
+        });
+
+        const data = await res.json();
+
+        if (res.status === 429) {
+          const retryAfter = res.headers.get("Retry-After");
+          const waitSec = retryAfter ? parseInt(retryAfter, 10) : 60;
+          lastError = `Too many requests. Please wait ${waitSec} seconds and try again.`;
+          break;
+        }
+
+        if (!res.ok && (res.status === 502 || res.status === 503 || res.status === 504)) {
+          lastError = "Payment service temporarily unavailable. Retrying...";
+          if (attempt < maxAttempts - 1) {
+            await new Promise(r => setTimeout(r, backoffMs[attempt]));
+            continue;
+          }
+          break;
+        }
+
+        if (data.dryRun) {
+          btn.disabled = false;
+          btn.textContent = "Proceed to Payment";
+          alert(data.message || "Dry run passed. Stripe configuration validated.");
+          return;
+        }
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        // non-retryable server error
+        lastError = data.error || "Failed to create payment session. Please try again.";
+        break;
+      } catch (err) {
+        lastError = "Network error. Check your connection and try again.";
+        if (attempt < maxAttempts - 1) {
+          await new Promise(r => setTimeout(r, backoffMs[attempt]));
+          continue;
+        }
+        break;
+      }
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Proceed to Payment";
+    setPaymentError(lastError);
+  }
+
+  document.getElementById("register-btn").addEventListener("click", async () => {
+    const firstName = document.getElementById("reg-firstName").value.trim();
+    const lastName = document.getElementById("reg-lastName").value.trim();
+    const phone = document.getElementById("reg-phone").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+
+    if (!firstName || !lastName || !email) {
+      document.getElementById("register-message").textContent = "Please enter your first name, last name, and email.";
+      document.getElementById("register-message").classList.remove("hidden");
+      return;
+    }
+
+    const btn = document.getElementById("register-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+
+    try {
+      const res = await fetch("/api/advanced/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phone,
+          email,
+          dateOfBirth: "",
+          ethnicity: "",
+          address: "",
+          postalAddress: "",
+          businessName: "",
+          website: "",
+          qualifications: "[]",
+          experience: "[]",
+          furtherRequirements: "{}",
+          coreCompetencies: "[]",
+          referee1Name: "",
+          referee1Role: "",
+          referee1Email: "",
+          referee1Phone: "",
+          referee2Name: "",
+          referee2Role: "",
+          referee2Email: "",
+          referee2Phone: "",
+          declarationAccuracy: "",
+          declarationEthics: "",
+          declarationScope: "",
+          declarationMemberServices: "",
+          declarationInterview: "",
+          declarationProfessionalDev: "",
+          declarationCriminalCheck: "",
+          declarationMeetings: "",
+          declarationSignedAt: new Date().toISOString(),
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (data.requiresVerification) {
+          // No-token registration path: server emailed a resume link. Hide
+          // the registration form, show the "check your email" panel, and
+          // do NOT advance the form or set any token. The user must click
+          // the emailed link (the GET path) to continue.
+          document.getElementById("section-register").classList.add("hidden");
+          setResumeLinkWarning("");
+          showVerifyEmailPanel(email, data.emailSent, data.emailError);
+          btn.disabled = false;
+          btn.textContent = "Start Application";
+          return;
+        }
+
+        // Token-bearing path (or future paths): the user already proved
+        // email control. Carry on as before.
+        ensureDocsUploadedStore();
+        applicantId = data.applicantId;
+        window.__applicantId__ = data.applicantId;
+        const resumeLink = data.resumeLink || "";
+        const resumeToken = extractTokenFromResumeLink(resumeLink) || token || "";
+        if (resumeToken) {
+          window.__token__ = resumeToken;
+          syncTokenToUrl(resumeToken);
+          showAccessLinkPanel(buildResumeLinkFromToken(resumeToken));
+        }
+
+        document.getElementById("firstName").value = firstName;
+        document.getElementById("lastName").value = lastName;
+        document.getElementById("phone").value = phone;
+        document.getElementById("email").value = email;
+
+        if (data.emailSent === false && resumeLink) {
+          setResumeLinkWarning(resumeLink);
+        } else {
+          setResumeLinkWarning("");
+        }
+
+        document.getElementById("section-register").classList.add("hidden");
+        document.getElementById("step-indicator").classList.remove("hidden");
+        showStep(1);
+      } else {
+        document.getElementById("register-message").textContent = data.error || "Failed.";
+        document.getElementById("register-message").classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Start Application";
+      }
+    } catch (err) {
+      document.getElementById("register-message").textContent = "Network error.";
+      document.getElementById("register-message").classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Start Application";
+    }
+  });
+
+  if (token) {
+    (async () => {
+      try {
+        const res = await fetch(`/api/advanced/apply?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        window.__docsUploaded__ = {};
+
+        if (data.status === "paid") {
+          setResumeLinkWarning("");
+          document.getElementById("step-indicator").classList.add("hidden");
+          showStep(0);
+          document.getElementById("section-register").classList.add("hidden");
+          document.getElementById("paid-section").classList.remove("hidden");
+          return;
+        }
+
+        if (data.status === "new" || data.status === "error") {
+          setResumeLinkWarning("");
+          document.getElementById("step-indicator").classList.add("hidden");
+          showStep(0);
+          return;
+        }
+        setResumeLinkWarning("");
+        showAccessLinkPanel(buildResumeLinkFromToken(token));
+
+        window.__token__ = token;
+        if (data.applicantId) {
+          applicantId = data.applicantId;
+          window.__applicantId__ = data.applicantId;
+        }
+
+        if (data.firstName) document.getElementById("reg-firstName").value = data.firstName || "";
+        if (data.lastName) document.getElementById("reg-lastName").value = data.lastName || "";
+        if (data.email) document.getElementById("reg-email").value = data.email || "";
+        if (data.phone) document.getElementById("reg-phone").value = data.phone || "";
+
+        document.getElementById("section-register").classList.add("hidden");
+
+        document.getElementById("firstName").value = data.firstName || "";
+        document.getElementById("lastName").value = data.lastName || "";
+        document.getElementById("phone").value = data.phone || "";
+        document.getElementById("email").value = data.email || "";
+        if (data.dateOfBirth) document.getElementById("dateOfBirth").value = data.dateOfBirth;
+        if (data.ethnicity) document.getElementById("ethnicity").value = data.ethnicity;
+        if (data.address) document.getElementById("address").value = data.address;
+        if (data.postalAddress) document.getElementById("postalAddress").value = data.postalAddress;
+        if (data.businessName) document.getElementById("businessName").value = data.businessName;
+        if (data.website) document.getElementById("website").value = data.website;
+
+        document.getElementById("step-indicator").classList.remove("hidden");
+
+        try {
+          const quals = JSON.parse(data.qualifications || "[]");
+          quals.forEach(q => addCourseRow(q));
+        } catch {}
+
+        try {
+          const exps = JSON.parse(data.experience || "[]");
+          exps.forEach(e => addExperienceRow(e));
+        } catch {}
+
+        try {
+          const fr = JSON.parse(data.furtherRequirements || "{}");
+          const setRadio = (name, val) => {
+            if (!val) return;
+            const radio = document.querySelector(`input[name="${name}"][value="${val}"]`);
+            if (radio) radio.checked = true;
+          };
+          setRadio("agreeMemberServices", fr.agreeMemberServices);
+          setRadio("agreeInterview", fr.agreeInterview);
+          setRadio("commitProfessionalDev", fr.commitProfessionalDev);
+          setRadio("willInsurance", fr.willInsurance);
+          setRadio("listDirectory", fr.listDirectory);
+          setRadio("provideCriminalCheck", fr.provideCriminalCheck);
+          setRadio("attendMeetings", fr.attendMeetings);
+          setRadio("workRemotely", fr.workRemotely);
+        } catch {}
+
+        try {
+          const comps = JSON.parse(data.coreCompetencies || "[]");
+          // Phase J1: competencyStates is gone; the schema-driven grid renders
+          // once at page load and the field names (coreCompetencies.{col})
+          // are stable for hydration. J2 will hydrate the grid radios here.
+          void comps;
+        } catch {}
+
+        if (data.referee1) {
+          document.getElementById("ref1Name").value = data.referee1.name || "";
+          document.getElementById("ref1Role").value = data.referee1.role || "";
+          document.getElementById("ref1Email").value = data.referee1.email || "";
+          document.getElementById("ref1Phone").value = data.referee1.phone || "";
+        }
+        if (data.referee2) {
+          document.getElementById("ref2Name").value = data.referee2.name || "";
+          document.getElementById("ref2Role").value = data.referee2.role || "";
+          document.getElementById("ref2Email").value = data.referee2.email || "";
+          document.getElementById("ref2Phone").value = data.referee2.phone || "";
+        }
+
+        try {
+          const exps = JSON.parse(data.experience || "[]");
+          if (exps[0]?.description) document.getElementById("example1").value = exps[0].description;
+          if (exps[1]?.description) document.getElementById("example2").value = exps[1].description;
+          if (exps[2]?.description) document.getElementById("example3").value = exps[2].description;
+        } catch {}
+
+        const isTrueFlag = (value) => String(value || "").toUpperCase() === "TRUE";
+        if (isTrueFlag(data.declarationAccuracy)) document.getElementById("declAccuracy").checked = true;
+        if (isTrueFlag(data.declarationEthics)) document.getElementById("declEthics").checked = true;
+        if (isTrueFlag(data.declarationScope)) document.getElementById("declScope").checked = true;
+        if (isTrueFlag(data.declarationMemberServices)) document.getElementById("declMemberServices").checked = true;
+        if (isTrueFlag(data.declarationInterview)) document.getElementById("declInterview").checked = true;
+        if (isTrueFlag(data.declarationProfessionalDev)) document.getElementById("declProfessionalDev").checked = true;
+        if (isTrueFlag(data.declarationCriminalCheck)) document.getElementById("declCriminalCheck").checked = true;
+        if (isTrueFlag(data.declarationMeetings)) document.getElementById("declMeetings").checked = true;
+
+        if (data.docsUploaded) {
+          window.__docsUploaded__ = data.docsUploaded;
+        }
+
+        document.getElementById("loading-overlay").classList.add("hidden");
+        showStep(1);
+      } catch (err) {
+        document.getElementById("loading-overlay").classList.add("hidden");
+        showStep(0);
+      }
+    })();
+  } else {
+    ensureDocsUploadedStore();
+    document.getElementById("loading-overlay").classList.add("hidden");
+    showStep(0);
+    // Phase J1: buildCompetencyGrid call removed — grid renders server-side
+    // via Step + FieldRenderer.
+  }
+</script>

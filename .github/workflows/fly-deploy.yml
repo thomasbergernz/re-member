@@ -1,0 +1,28 @@
+# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+name: Fly Deploy Production
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref (branch, tag, or SHA) to deploy
+        required: true
+        default: main
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: deploy-production
+# Self-disable until Phase 10. Gate on a repo VARIABLE, not a secret:
+    # the `secrets` context is not available in job-level `if`, so a
+    # `secrets.* != ''` guard evaluates empty and the job never runs even
+    # after the token is set. Set repo var FLY_DEPLOY_ENABLED=true to enable.
+    if: ${{ vars.FLY_DEPLOY_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.ref }}
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --app remember-production
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

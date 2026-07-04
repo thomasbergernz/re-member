@@ -1,0 +1,25 @@
+# Dependabot: security alerts are always on for public repos; this adds
+# scheduled version-update PRs. CI (test.yml) gates every PR, so a green
+# Dependabot PR has already passed check + unit + e2e.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Pacific/Auckland"
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for all minor+patch bumps — keeps the queue reviewable.
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+    # Majors arrive as individual PRs (stripe/googleapis majors need reading
+    # the changelog — see .claude/skills/maintainer/SKILL.md).
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
