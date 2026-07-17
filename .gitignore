@@ -36,5 +36,6 @@ sa-key.json
 # openwolf designqc screenshot artifacts (regenerated on each run).
 .wolf/designqc-captures/
 
-# Standalone marketing-site repo (own git history, not part of the app)
-re-member-site/
+# Standalone marketing-site repo (own git history, not part of the app).
+# Renamed from re-member-site/ → website/ (see website/DEPLOY.md).
+website/
