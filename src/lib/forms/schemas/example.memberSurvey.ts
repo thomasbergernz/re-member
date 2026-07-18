@@ -15,6 +15,7 @@
  *   - repeatable (course feedback rows)
  *   - grid (satisfaction ratings across 4 dimensions)
  *   - group (2 nested sub-objects)
+ *   - signature (type-a-name / draw-on-canvas)
  *   - visibleWhen + conditional required (referral source drives follow-up)
  */
 
@@ -154,6 +155,10 @@ export const schema: FormSchema = {
             { name: "postcode", type: "text", required: false, contentKey: "contact.postcode" },
           ],
         },
+        // Reusable signature field. Value is a typed name OR a Drive link to a
+        // drawn PNG. Drawn mode needs an upload endpoint + a page-provided
+        // token — the smoke page has neither, so it demos the typed + canvas UI.
+        { name: "signature", type: "signature", required: false, contentKey: "contact.signature" },
       ],
     },
   ],
@@ -177,6 +182,7 @@ export const schema: FormSchema = {
       "address.street": "N",
       "address.city": "O",
       "address.postcode": "P",
+      signature: "Q",
     },
     rowFactory: "createApplicantRow",
   },

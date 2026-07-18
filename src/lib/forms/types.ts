@@ -26,7 +26,8 @@ export type FieldType =
   | "checkbox"
   | "repeatable"
   | "grid"
-  | "group";
+  | "group"
+  | "signature";
 
 export interface FieldOption {
   /** Stable identifier — referenced by `visibleWhen` predicates and validators. Lives in TS. */
@@ -127,13 +128,40 @@ export interface GridField extends BaseField {
   }>;
 }
 
+/**
+ * Signature capture. Renders a mode toggle: type a full name (the
+ * accessibility / no-JS fallback — a plain `<input name>` that posts
+ * directly) OR draw on a `<canvas>`. A drawn signature is exported to PNG,
+ * uploaded to `uploadEndpoint`, and the returned Drive link becomes the
+ * field value. The stored value is therefore either a typed name or an
+ * `https://…` URL — both plain strings, default `"string"` serialize.
+ *
+ * Drawn mode requires the host page to expose an upload endpoint plus an
+ * identity (a `token` — read from a `[name="token"]` hidden input or
+ * `window.__token__`). Today only the Advanced application satisfies that;
+ * on a form without it, leave `allowDrawn: false` and the typed fallback
+ * is the whole field.
+ */
+export interface SignatureField extends BaseField {
+  type: "signature";
+  /** Offer the type-a-name mode. Default true (a11y / no-canvas fallback). */
+  allowTyped?: boolean;
+  /** Offer the draw-on-canvas mode. Default true. */
+  allowDrawn?: boolean;
+  /** docType sent to the upload endpoint for the drawn PNG. Default "signature". */
+  uploadDocType?: string;
+  /** Endpoint the drawn PNG is POSTed to. Default "/api/advanced/upload-file". */
+  uploadEndpoint?: string;
+}
+
 export type FieldDefinition =
   | TextField
   | SelectField
   | CheckboxField
   | GroupField
   | RepeatableField
-  | GridField;
+  | GridField
+  | SignatureField;
 
 export interface Step {
   id: string;

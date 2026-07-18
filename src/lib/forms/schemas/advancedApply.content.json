@@ -196,6 +196,10 @@
         },
         "meetings": {
           "label": "I am willing to attend regular JimuMember meetings and events, and engage with and support my local JimuMember community."
+        },
+        "signature": {
+          "label": "Your signature",
+          "help": "Type your full name, or switch to Draw to sign with your mouse or finger."
         }
       }
     },

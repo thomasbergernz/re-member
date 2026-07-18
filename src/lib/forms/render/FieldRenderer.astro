@@ -26,6 +26,7 @@ import type {
   GridField,
   RepeatableField,
   SelectField,
+  SignatureField,
   TextField,
 } from "../types";
 import InlineRenderer from "./InlineRenderer.astro";
@@ -69,6 +70,15 @@ const isRequired = field.required === true;
 const isReadonly = readonly === true;
 const describedById = help ? `${inputId}-help` : undefined;
 const errorId = error ? `${inputId}-error` : undefined;
+
+// Signature field config (only meaningful when field.type === "signature").
+const sig = field.type === "signature" ? (field as SignatureField) : null;
+const sigAllowTyped = sig ? sig.allowTyped !== false : false;
+const sigAllowDrawn = sig ? sig.allowDrawn !== false : false;
+const sigDocType = sig?.uploadDocType ?? "signature";
+const sigEndpoint = sig?.uploadEndpoint ?? "/api/advanced/upload-file";
+const sigValue = typeof value === "string" ? value : "";
+const sigValueIsUrl = /^https?:\/\//i.test(sigValue);
 ---
 
 <div class="field" data-field-name={field.name} data-field-type={field.type}>
@@ -156,7 +166,7 @@ const errorId = error ? `${inputId}-error` : undefined;
   {field.type === "group" && (
     <fieldset class="field-group">
       <legend class="sr-only">{label}</legend>
-      {field.fields.map((child) => (
+      {field.fields.map((child: FieldDefinition) => (
         <Fragment>
           <InlineRenderer
             field={child}
@@ -221,6 +231,76 @@ const errorId = error ? `${inputId}-error` : undefined;
         </tr>
       </tbody>
     </table>
+  )}
+
+  {field.type === "signature" && (
+    <div
+      class="signature"
+      data-signature
+      data-signature-endpoint={sigEndpoint}
+      data-signature-doctype={sigDocType}
+      data-signature-allow-typed={sigAllowTyped ? "true" : "false"}
+      data-signature-allow-drawn={sigAllowDrawn ? "true" : "false"}
+    >
+      {sigAllowTyped && sigAllowDrawn && (
+        <div class="signature-modes" role="radiogroup" aria-label={label}>
+          <label class="signature-mode">
+            <input type="radio" name={`${inputName}__mode`} value="type" data-signature-mode="type" checked={!sigValueIsUrl} />
+            <span>Type name</span>
+          </label>
+          <label class="signature-mode">
+            <input type="radio" name={`${inputName}__mode`} value="draw" data-signature-mode="draw" checked={sigValueIsUrl} />
+            <span>Draw</span>
+          </label>
+        </div>
+      )}
+
+      {sigAllowTyped && (
+        <input
+          type="text"
+          id={inputId}
+          name={inputName}
+          value={sigValueIsUrl ? "" : sigValue}
+          placeholder={placeholder}
+          required={isRequired}
+          disabled={isReadonly}
+          autocomplete="name"
+          data-signature-typed
+          aria-describedby={[describedById, errorId].filter(Boolean).join(" ") || undefined}
+        />
+      )}
+
+      {sigAllowDrawn && (
+        <div class="signature-draw" data-signature-draw hidden={!sigValueIsUrl}>
+          <canvas
+            class="signature-canvas"
+            data-signature-canvas
+            width="600"
+            height="200"
+            aria-label={`${label} — draw with mouse or finger`}
+          ></canvas>
+          <div class="signature-draw-actions">
+            <button type="button" data-signature-clear>Clear</button>
+            <button type="button" data-signature-commit>Use this signature</button>
+          </div>
+          <p class="signature-status" data-signature-status aria-live="polite">
+            {sigValueIsUrl ? "Signature captured." : ""}
+          </p>
+          <p class="signature-error field-error" data-signature-error role="alert" hidden></p>
+        </div>
+      )}
+
+      {/* Carrier for the drawn Drive link. Disabled by default so it is
+          excluded from FormData while typed mode is active — the typed input
+          and this carrier share `name`, and only the active one is enabled. */}
+      <input
+        type="hidden"
+        name={inputName}
+        value={sigValueIsUrl ? sigValue : ""}
+        data-signature-hidden
+        disabled
+      />
+    </div>
   )}
 
   {help && <div id={describedById} class="field-help">{help}</div>}

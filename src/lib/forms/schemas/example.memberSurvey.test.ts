@@ -20,7 +20,7 @@ describe("exampleMemberSurvey schema (Phase E reference)", () => {
       new Set([
         "text", "email", "tel", "date", "number",
         "textarea", "select", "radio", "checkbox",
-        "repeatable", "grid", "group",
+        "repeatable", "grid", "group", "signature",
       ]),
     );
   });

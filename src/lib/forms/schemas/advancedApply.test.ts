@@ -76,8 +76,43 @@ describe("advancedApply schema", () => {
       declarationProfessionalDev: true,
       declarationCriminalCheck: true,
       declarationMeetings: true,
+      signature: "Alice Smith",
     });
     expect(r.ok).toBe(true);
+  });
+
+  it("has a required signature field on the declarations step", () => {
+    const declarations = schema.steps[6];
+    expect(declarations.id).toBe("declarations");
+    const sig = declarations.fields.find((f) => f.name === "signature");
+    expect(sig?.type).toBe("signature");
+    expect(sig?.required).toBe(true);
+  });
+
+  it("requires the signature (rejects blank, accepts typed name OR drawn Drive link)", () => {
+    const base = {
+      firstName: "Alice", lastName: "Smith", dateOfBirth: "1990-01-01", email: "a@b.com",
+      qualifications: [{ name: "Foundations", provider: "X", year: 2024 }],
+      referee1Name: "R1", referee1Email: "r1@example.com",
+      referee2Name: "R2", referee2Email: "r2@example.com",
+      declarationAccuracy: true, declarationEthics: true, declarationScope: true,
+      declarationMemberServices: true, declarationInterview: true,
+      declarationProfessionalDev: true, declarationCriminalCheck: true, declarationMeetings: true,
+    };
+    expect(validate(schema, base).errors.signature).toBe("Required");
+    expect(validate(schema, { ...base, signature: "Alice Smith" }).errors.signature).toBeUndefined();
+    expect(
+      validate(schema, { ...base, signature: "https://drive.google.com/file/d/abc/view" }).errors.signature,
+    ).toBeUndefined();
+  });
+
+  it("serializes the signature value to column AV via toRow", () => {
+    const link = "https://drive.google.com/file/d/abc/view";
+    const r = validate(schema, {
+      firstName: "Alice", lastName: "Smith", dateOfBirth: "1990-01-01", email: "a@b.com",
+      signature: link,
+    });
+    expect(toRow(schema, r.values).AV).toBe(link);
   });
 
   it("emits the correct column letters via toRow (form-derived only)", () => {

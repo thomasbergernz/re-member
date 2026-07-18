@@ -139,6 +139,7 @@ export const GET: APIRoute = async ({ url }) => {
       declarationProfessionalDev: applicant.declarationProfessionalDev,
       declarationCriminalCheck: applicant.declarationCriminalCheck,
       declarationMeetings: applicant.declarationMeetings,
+      signature: applicant.signature,
       complete: isComplete,
     });
   } catch (error) {
@@ -205,6 +206,8 @@ export const POST: APIRoute = async ({ request, url }) => {
   const declarationCriminalCheck = (payload.declarationCriminalCheck as string) || "";
   const declarationMeetings = (payload.declarationMeetings as string) || "";
   const declarationSignedAt = (payload.declarationSignedAt as string) || "";
+  // Typed full name OR a Drive link to a drawn PNG (uploaded before this save).
+  const signature = (payload.signature as string)?.trim() || "";
 
   try {
     // Token branch: applicant presented a magic link they got via email. This
@@ -249,6 +252,7 @@ export const POST: APIRoute = async ({ request, url }) => {
           declarationCriminalCheck,
           declarationMeetings,
           declarationSignedAt: declarationSignedAt || new Date().toISOString(),
+          signature,
         });
 
         // Best-effort flip to verified on first token-bearing write — the
