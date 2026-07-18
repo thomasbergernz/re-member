@@ -214,6 +214,7 @@ export const schema: FormSchema = {
         { name: "declarationProfessionalDev", type: "checkbox", required: true, contentKey: "declarations.professionalDev", validators: [required] },
         { name: "declarationCriminalCheck", type: "checkbox", required: true, contentKey: "declarations.criminalCheck", validators: [required] },
         { name: "declarationMeetings", type: "checkbox", required: true, contentKey: "declarations.meetings", validators: [required] },
+        { name: "signature", type: "signature", required: true, contentKey: "declarations.signature", validators: [required] },
       ],
     },
 
@@ -261,6 +262,8 @@ export const schema: FormSchema = {
       declarationProfessionalDev: "AC",
       declarationCriminalCheck: "AD",
       declarationMeetings: "AE",
+      // AF declaration_signed_at is a managed cell (written in apply.ts).
+      signature: "AV",
     },
     rowFactory: "createApplicantRow",
   },

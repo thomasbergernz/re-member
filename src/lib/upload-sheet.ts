@@ -55,7 +55,7 @@ function sheetNameForApplicationSchema(schemaSlug: string): string {
 
 const DEFAULT_SHEET_NAME = getTier("advanced").sheetName;
 
-// 47 columns: A through AU
+// 48 columns: A through AV
 const SHEET_HEADERS = [
   "applicant_id",     // A
   "email",           // B
@@ -104,6 +104,7 @@ const SHEET_HEADERS = [
   "created_at",     // AS
   "paid_at",        // AT
   "email_verified", // AU  (blank = legacy, treated as verified)
+  "signature",      // AV  (typed full name OR a Drive link to a drawn PNG)
 ];
 
 function hashEmail(email: string): string {
@@ -154,7 +155,8 @@ export async function createApplicantRow(
   declarationCriminalCheck = "",
   declarationMeetings = "",
   declarationSignedAt = "",
-  emailVerified = "FALSE"
+  emailVerified = "FALSE",
+  signature = ""
 ): Promise<void> {
   await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
@@ -208,9 +210,10 @@ export async function createApplicantRow(
     new Date().toISOString(), // created_at // AS
     "", // paid_at         // AT
     emailVerified, // AU   (default "FALSE" — verified by clicking emailed link)
+    signature,     // AV   (blank at creation; set later when the applicant signs)
   ];
 
-  await appendToRange(`'${DEFAULT_SHEET_NAME}'!A:AU`, row);
+  await appendToRange(`'${DEFAULT_SHEET_NAME}'!A:AV`, row);
 }
 
 export async function updateApplicantFormData(
@@ -247,6 +250,7 @@ export async function updateApplicantFormData(
     declarationCriminalCheck?: string;
     declarationMeetings?: string;
     declarationSignedAt?: string;
+    signature?: string;
   }
 ): Promise<void> {
   await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
@@ -299,6 +303,7 @@ export async function updateApplicantFormData(
     AD: data.declarationCriminalCheck ?? "",
     AE: data.declarationMeetings ?? "",
     AF: data.declarationSignedAt ?? "",
+    AV: data.signature ?? "",
   };
 
   // Only update non-empty values; collect ranges
@@ -462,6 +467,7 @@ export interface ApplicantInfo {
   createdAt: string;
   paidAt: string;
   emailVerified: string;
+  signature: string;
 }
 
 export async function getApplicantByToken(
@@ -469,7 +475,7 @@ export async function getApplicantByToken(
 ): Promise<ApplicantInfo | null> {
   await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
-  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AV`);
 
   // Row index: AG = column index 32 (0-based), so row[32] = resumeToken
   for (let i = 1; i < rows.length; i++) {
@@ -532,6 +538,7 @@ export async function getApplicantByToken(
         createdAt: row[44] ?? "",
         paidAt: row[45] ?? "",
         emailVerified: parseEmailVerified(row[46]),
+        signature: row[47] ?? "",
       };
     }
   }
@@ -544,7 +551,7 @@ export async function getApplicantByEmail(
 ): Promise<ApplicantInfo | null> {
   await ensureSheetWithHeaders(DEFAULT_SHEET_NAME, SHEET_HEADERS);
 
-  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AV`);
 
   // row[1] = email (column B)
   for (let i = 1; i < rows.length; i++) {
@@ -598,6 +605,7 @@ export async function getApplicantByEmail(
         createdAt: row[44] ?? "",
         paidAt: row[45] ?? "",
         emailVerified: parseEmailVerified(row[46]),
+        signature: row[47] ?? "",
       };
     }
   }
@@ -608,7 +616,7 @@ export async function getApplicantByEmail(
 export async function getUploadStatus(
   applicantId: string
 ): Promise<UploadStatus | null> {
-  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AV`);
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -714,7 +722,7 @@ export async function validateCompletion(applicantId: string): Promise<boolean> 
 }
 
 export async function getApplicantById(applicantId: string): Promise<ApplicantInfo | null> {
-  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AU`);
+  const rows = await readRange(`${DEFAULT_SHEET_NAME}!A:AV`);
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -767,6 +775,7 @@ export async function getApplicantById(applicantId: string): Promise<ApplicantIn
         createdAt: row[44] ?? "",
         paidAt: row[45] ?? "",
         emailVerified: parseEmailVerified(row[46]),
+        signature: row[47] ?? "",
       };
     }
   }

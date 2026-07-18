@@ -52,7 +52,8 @@
       "fields": {
         "street": { "label": "Street" },
         "city": { "label": "City" },
-        "postcode": { "label": "Postcode" }
+        "postcode": { "label": "Postcode" },
+        "signature": { "label": "Signature", "help": "Type your name, or switch to Draw." }
       }
     }
   }

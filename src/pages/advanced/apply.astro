@@ -814,6 +814,15 @@ const token = Astro.url.searchParams.get("token");
           return false;
         }
       }
+      // Signature — the schema-driven field posts under name="signature"
+      // (typed input OR the drawn-signature carrier; only the active one is
+      // enabled, so FormData carries exactly one value).
+      const sigForm = document.getElementById("professional-apply-form");
+      const sig = sigForm ? String(new FormData(sigForm).get("signature") || "").trim() : "";
+      if (!sig) {
+        alert("Please add your signature to proceed.");
+        return false;
+      }
       return true;
     }
     return true;
@@ -1373,6 +1382,11 @@ const token = Astro.url.searchParams.get("token");
         if (isTrueFlag(data.declarationProfessionalDev)) document.getElementById("declProfessionalDev").checked = true;
         if (isTrueFlag(data.declarationCriminalCheck)) document.getElementById("declCriminalCheck").checked = true;
         if (isTrueFlag(data.declarationMeetings)) document.getElementById("declMeetings").checked = true;
+
+        // Signature (schema-driven field) — hydrate via the form-client hook.
+        if (window.__hydrateSignature__ && data.signature) {
+          window.__hydrateSignature__(data.signature);
+        }
 
         if (data.docsUploaded) {
           window.__docsUploaded__ = data.docsUploaded;

@@ -366,7 +366,10 @@ export const POST: APIRoute = async ({ request }) => {
     return respond(400, { code: "MISSING_FILENAME", error: "File name is required." });
   }
 
-  const allDocTypes = [...REQUIRED_DOC_TYPES, "insurance"] as const;
+  // "signature" is an accepted docType but deliberately NOT in
+  // REQUIRED_DOC_TYPES — it drives no completion/doc-count column. A drawn
+  // signature PNG is uploaded through this same path (magic-byte-checked).
+  const allDocTypes = [...REQUIRED_DOC_TYPES, "insurance", "signature"] as const;
   if (!allDocTypes.includes(docType as typeof allDocTypes[number])) {
     requestLogger.warn("upload_bad_doctype", {
       stage,
@@ -517,11 +520,12 @@ export const POST: APIRoute = async ({ request }) => {
         requestBody: { name: randomFilename, parents: [docFolderId] },
         media: { mimeType, body: Readable.from(buffer) },
         supportsAllDrives: true,
-        fields: "id",
+        fields: "id, webViewLink",
       });
       const createdFileId = created.data.id;
       if (!createdFileId) throw new Error("Drive API returned no file ID");
       const driveFileId = createdFileId;
+      const webViewLink = created.data.webViewLink ?? "";
       requestLogger.info("drive_file_created", {
         stage,
         applicantId: applicant.id,
@@ -555,6 +559,8 @@ export const POST: APIRoute = async ({ request }) => {
         success: true,
         docType,
         fileId: randomFilename,
+        driveFileId,
+        webViewLink,
         originalFilename: filename,
         uploadedAt,
         message: "Document uploaded successfully.",

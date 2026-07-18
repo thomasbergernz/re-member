@@ -16,7 +16,8 @@ This id is referenced from your Astro page (`loadSchema("yourId")`) and the API 
 Open `yourSchema.ts`. Walk through these decisions in order:
 
 - **Step count.** Each `Step` represents a page in the wizard. Order them the way the user encounters them.
-- **Field types.** Pick from `text | email | tel | date | number | textarea | select | radio | checkbox | repeatable | grid | group`.
+- **Field types.** Pick from `text | email | tel | date | number | textarea | select | radio | checkbox | repeatable | grid | group | signature`.
+- **Signature field.** `type: "signature"` renders a mode toggle: **type a full name** (a plain `<input>` that posts with no JS — the accessibility fallback) OR **draw** on a canvas. A drawn signature is exported to PNG, uploaded, and its Drive link becomes the stored value — so a signature cell holds either a typed name or an `https://…` URL (both plain strings; no `serialize` rule needed). Optional props: `allowTyped` / `allowDrawn` (default both true), `uploadDocType` (default `"signature"`), `uploadEndpoint` (default `/api/advanced/upload-file`). **Drawn mode requires the host page to expose an upload endpoint and a `token`** (read from a `[name="token"]` hidden input or `window.__token__`); today only the Advanced application satisfies that. On a form without a token, set `allowDrawn: false` and the typed fallback is the whole field. Resume/hydration on a page that manages its own GET flow: call `window.__hydrateSignature__(savedValue)` after `mount()`.
 - **Required fields.** Add `required: true` for fields that block submission when blank.
 - **Validators.** Chain validators from `src/lib/forms/validators.ts`:
   - `required` — fails on blank

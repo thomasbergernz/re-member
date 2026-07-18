@@ -217,6 +217,202 @@ export function attachUploadLock(form: HTMLFormElement, endpoint: string): void 
 }
 
 // ----------------------------------------------------------------------------
+// Signature — type-a-name OR draw-on-canvas, with a mode toggle. The typed
+// input and a hidden carrier share the field `name`; only the active one is
+// enabled (disabled controls are excluded from FormData) so exactly one value
+// posts. Drawing exports a PNG, uploads it to the field's endpoint, and stores
+// the returned Drive link in the hidden carrier — then dispatches `input` so
+// the existing autosave queue persists it. Returns a hydrate(value) closure.
+// ----------------------------------------------------------------------------
+
+export function attachSignature(fieldEl: HTMLElement): (value: string) => void {
+  const form = fieldEl.closest("form");
+  const endpoint = fieldEl.dataset.signatureEndpoint || "/api/advanced/upload-file";
+  const docType = fieldEl.dataset.signatureDoctype || "signature";
+  const allowDrawn = fieldEl.dataset.signatureAllowDrawn !== "false";
+
+  const typed = fieldEl.querySelector<HTMLInputElement>("[data-signature-typed]");
+  const hidden = fieldEl.querySelector<HTMLInputElement>("[data-signature-hidden]");
+  const drawWrap = fieldEl.querySelector<HTMLElement>("[data-signature-draw]");
+  const canvas = fieldEl.querySelector<HTMLCanvasElement>("[data-signature-canvas]");
+  const clearBtn = fieldEl.querySelector<HTMLButtonElement>("[data-signature-clear]");
+  const commitBtn = fieldEl.querySelector<HTMLButtonElement>("[data-signature-commit]");
+  const statusEl = fieldEl.querySelector<HTMLElement>("[data-signature-status]");
+  const errorEl = fieldEl.querySelector<HTMLElement>("[data-signature-error]");
+  const modeRadios = Array.from(
+    fieldEl.querySelectorAll<HTMLInputElement>("[data-signature-mode]"),
+  );
+
+  const noop = () => {};
+
+  const setError = (msg: string) => {
+    if (!errorEl) return;
+    errorEl.textContent = msg;
+    errorEl.hidden = !msg;
+  };
+  const setStatus = (msg: string) => {
+    if (statusEl) statusEl.textContent = msg;
+  };
+
+  const setMode = (mode: "type" | "draw") => {
+    const drawing = mode === "draw" && allowDrawn;
+    if (typed) {
+      typed.hidden = drawing;
+      typed.disabled = drawing;
+    }
+    if (drawWrap) drawWrap.hidden = !drawing;
+    if (hidden) hidden.disabled = !drawing;
+    modeRadios.forEach((r) => {
+      r.checked = r.dataset.signatureMode === (drawing ? "draw" : "type");
+    });
+  };
+
+  modeRadios.forEach((r) => {
+    r.addEventListener("change", () => {
+      if (r.checked) setMode(r.dataset.signatureMode === "draw" ? "draw" : "type");
+    });
+  });
+
+  // --- Canvas drawing -------------------------------------------------------
+  let hasStrokes = false;
+  if (canvas && allowDrawn) {
+    canvas.style.touchAction = "none";
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.lineWidth = 2;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#111827";
+    }
+    let drawing = false;
+    const pos = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    };
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!ctx) return;
+      drawing = true;
+      canvas.setPointerCapture(e.pointerId);
+      const p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drawing || !ctx) return;
+      const p = pos(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      hasStrokes = true;
+    });
+    const stop = () => { drawing = false; };
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+    canvas.addEventListener("pointerleave", stop);
+  }
+
+  const clearCanvas = () => {
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    hasStrokes = false;
+  };
+
+  clearBtn?.addEventListener("click", () => {
+    clearCanvas();
+    if (hidden) hidden.value = "";
+    setStatus("");
+    setError("");
+  });
+
+  const getToken = (): string => {
+    const el = (form ?? document).querySelector<HTMLInputElement>('[name="token"]');
+    const win = window as unknown as { __token__?: string };
+    return (el?.value || win.__token__ || "").trim();
+  };
+
+  commitBtn?.addEventListener("click", async () => {
+    if (!canvas || !hidden) return;
+    setError("");
+    if (!hasStrokes) {
+      setError("Please draw your signature before saving.");
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setError("Could not identify your application. Reload the link from your email and try again.");
+      return;
+    }
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) {
+      setError("Could not export the signature image. Please try again.");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    }).catch(() => "");
+    const base64 = dataUrl.split(",")[1] || "";
+    if (!base64) {
+      setError("Could not read the signature image. Please try again.");
+      return;
+    }
+
+    commitBtn.disabled = true;
+    setStatus("Saving signature…");
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          docType,
+          filename: "signature.png",
+          mimeType: "image/png",
+          data: base64,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { webViewLink?: string; error?: string };
+      if (!res.ok || !body.webViewLink) {
+        setError(body.error || "Upload failed. Please try again.");
+        return;
+      }
+      hidden.value = body.webViewLink;
+      setStatus("Signature captured.");
+      // Nudge the autosave queue (listens on form "input").
+      form?.dispatchEvent(new Event("input", { bubbles: true }));
+    } catch {
+      setError("Network error while saving your signature. Please try again.");
+    } finally {
+      commitBtn.disabled = false;
+    }
+  });
+
+  // Initial mode from the server-rendered carrier value (URL → captured/draw).
+  const initialIsUrl = /^https?:\/\//i.test(hidden?.value || "");
+  setMode(initialIsUrl ? "draw" : "type");
+
+  // Hydration closure — called on resume with the saved value.
+  return (value: string) => {
+    const v = (value || "").trim();
+    if (!v) return;
+    if (/^https?:\/\//i.test(v)) {
+      if (hidden) hidden.value = v;
+      setMode("draw");
+      setStatus("Signature captured.");
+    } else {
+      if (typed) typed.value = v;
+      setMode("type");
+    }
+  };
+}
+
+// ----------------------------------------------------------------------------
 // Resume hydration — sets field values from a saved API response.
 // Phase A skeleton: text/email/tel/date/number/textarea + select + radio.
 // Phase C adds nested groups, repeatable reconstruction, and grid-cell
@@ -276,6 +472,15 @@ export function mount(root: HTMLElement, options: MountOptions): {
   if (options.initialValues) hydrateFromResponse(form, options.initialValues);
   attachVisibleWhen(form, options.schema);
   root.querySelectorAll<HTMLElement>("[data-repeatable-name]").forEach(attachRepeatable);
+
+  const signatureHydrators = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-signature]"),
+  ).map(attachSignature);
+  if (signatureHydrators.length) {
+    (window as unknown as { __hydrateSignature__?: (v: string) => void }).__hydrateSignature__ =
+      (value: string) => signatureHydrators.forEach((h) => h(value));
+  }
+
   if (options.autosave) attachAutosaveQueue(form, options.autosave);
 
   return { form };
