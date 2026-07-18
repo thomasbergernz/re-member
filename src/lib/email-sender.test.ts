@@ -33,7 +33,7 @@ const ORIGINAL_ENV = { ...process.env };
 function setMailgunEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
   process.env.MAILGUN_API_KEY = "key-test";
   process.env.MAILGUN_DOMAIN = "mg.example.com";
-  process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+  process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
   for (const [k, v] of Object.entries(overrides)) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
@@ -66,7 +66,7 @@ describe("sendEmail", () => {
     expect(mockMessagesCreate).toHaveBeenCalledWith(
       "mg.example.com",
       expect.objectContaining({
-        from: "Re:Member <no-reply@mg.example.com>",
+        from: "JimuMember <no-reply@mg.example.com>",
         to: ["a@b.com"],
         subject: "Hello",
         text: "World",
@@ -207,10 +207,10 @@ describe("sendAdvancedConfirmation", () => {
   it("addresses the applicant by full name and includes the right subject", async () => {
     const { to, subject, text } = await captureBody("advanced");
     expect(to).toBe("jane@example.com");
-    expect(subject).toBe("Your Re:Member Advanced Membership Application");
+    expect(subject).toBe("Your JimuMember Advanced Membership Application");
     expect(text).toContain("Dear Jane Doe");
-    expect(text).toContain("Advanced Member of Re:Member");
-    expect(text).toContain("The Re:Member Committee");
+    expect(text).toContain("Advanced Member of JimuMember");
+    expect(text).toContain("The JimuMember Committee");
   });
 });
 
@@ -260,7 +260,7 @@ describe("sendResumeLink", () => {
   it("includes the resume link and applicant name", async () => {
     const { to, subject, text } = await captureBody("resume");
     expect(to).toBe("jane@example.com");
-    expect(subject).toBe("Your Re:Member Advanced Membership Application");
+    expect(subject).toBe("Your JimuMember Advanced Membership Application");
     expect(text).toContain("Dear Jane Doe");
     expect(text).toContain("https://example.com/resume/abc123");
     expect(text).toContain("If you did not start this application, please ignore this email");

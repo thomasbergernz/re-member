@@ -1,6 +1,6 @@
 # Adding a new membership tier
 
-Each tier in Re:Member owns its display label, Stripe prices, sheet tabs, and renewal/application schemas. Adding a third tier is mostly a config change — but a few engineering touchpoints follow.
+Each tier in JimuMember owns its display label, Stripe prices, sheet tabs, and renewal/application schemas. Adding a third tier is mostly a config change — but a few engineering touchpoints follow.
 
 ## 1. Add the entry to `src/lib/forms/tiers.ts`
 

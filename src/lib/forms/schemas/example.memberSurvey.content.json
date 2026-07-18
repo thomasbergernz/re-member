@@ -42,7 +42,7 @@
         "coursesAttended.title": { "label": "Course title" },
         "coursesAttended.date": { "label": "Date" },
         "coursesAttended.rating": { "label": "Rating (1-5)" },
-        "wouldRecommend": { "label": "I would recommend Re:Member to a colleague" },
+        "wouldRecommend": { "label": "I would recommend JimuMember to a colleague" },
         "referralSource": { "label": "How did you hear about us?" },
         "referralDetail": { "label": "Tell us more (required when 'Other')" }
       }

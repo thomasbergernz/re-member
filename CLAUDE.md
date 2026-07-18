@@ -1,4 +1,4 @@
-# Re:Member — Blueprint Membership Platform
+# JimuMember — Blueprint Membership Platform
 
 A neutral Astro + Stripe + Google-Workspace membership platform blueprint. Fork it, customise the sample data and env vars, deploy. Out of the box it ships with sample form content from a professional-membership org; see `docs/CUSTOMIZE.md` before deploying to a real org.
 

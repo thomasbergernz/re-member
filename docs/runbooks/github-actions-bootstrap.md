@@ -4,7 +4,7 @@ Use this when setting up CI/CD for a new client deployment. Run after Phase 9 (F
 
 ## 1. Fork the repo (or use the deploying party's fork)
 
-If the client needs their own fork: fork `github.com/thomasbergernz/re-member` (or the deploying party's fork) under the client's org. Clone their fork locally. Push all Phase 1-11 changes to the client's fork first.
+If the client needs their own fork: fork `github.com/Confluenceservice/jimumember` (or the deploying party's fork) under the client's org. Clone their fork locally. Push all Phase 1-11 changes to the client's fork first.
 
 Verify: `git remote -v` shows the client's fork as `origin`, the blueprint upstream as `upstream`.
 

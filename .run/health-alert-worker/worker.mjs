@@ -3,10 +3,10 @@
 // Pings the production /api/health endpoint, posts to Slack on failure.
 //
 // Targets are configured via env vars so this Worker can be reused by other
-// Re:Member deployments without code changes:
+// JimuMember deployments without code changes:
 //   TARGET_URL    — full URL of /api/health on the production Fly app
 //   TARGET_NAME   — display label for the Slack alert (default: "production")
-//   ORG_NAME      — org name shown in the Slack alert header (default: "Re:Member")
+//   ORG_NAME      — org name shown in the Slack alert header (default: "JimuMember")
 
 function loadTargets(env) {
   const url = env.TARGET_URL?.trim();
@@ -17,7 +17,7 @@ function loadTargets(env) {
 }
 
 function orgName(env) {
-  return env.ORG_NAME?.trim() || "Re:Member";
+  return env.ORG_NAME?.trim() || "JimuMember";
 }
 
 // Timeouts: cold starts on Fly can exceed 10s (stopped machine + Node import

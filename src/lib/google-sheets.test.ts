@@ -228,7 +228,7 @@ describe("google-sheets", () => {
       await appendEmailLog({
         timestamp: "2026-06-01T09:00:00.000Z",
         to: "jane@example.com",
-        subject: "Your Re:Member Advanced Membership Application",
+        subject: "Your JimuMember Advanced Membership Application",
         template: "confirmation",
         applicantId: "app_abc123",
         result: "sent",
@@ -243,7 +243,7 @@ describe("google-sheets", () => {
           values: [[
             "2026-06-01T09:00:00.000Z",
             "jane@example.com",
-            "Your Re:Member Advanced Membership Application",
+            "Your JimuMember Advanced Membership Application",
             "confirmation",
             "app_abc123",
             "sent",
@@ -259,7 +259,7 @@ describe("google-sheets", () => {
       await appendEmailLog({
         timestamp: "2026-06-01T09:00:00.000Z",
         to: "jane@example.com",
-        subject: "Your Re:Member Advanced Membership Application",
+        subject: "Your JimuMember Advanced Membership Application",
         template: "resume_link",
         applicantId: "app_abc123",
         result: "failed",
@@ -292,7 +292,7 @@ describe("google-sheets", () => {
       await appendEmailLog({
         timestamp: "2026-06-01T09:00:00.000Z",
         to: "bob@example.com",
-        subject: "Welcome to Re:Member — Basic Membership Confirmed",
+        subject: "Welcome to JimuMember — Basic Membership Confirmed",
         template: "basic_confirmation",
         result: "sent",
       });

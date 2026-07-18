@@ -6,7 +6,7 @@
 
 ## Overview
 
-Re:Member supports an unbounded number of membership tiers via a frozen configuration object. Today: `basic`, `advanced`. Each tier has a stable storage value (decoupled from its public label) so renames don't break Sheet data.
+JimuMember supports an unbounded number of membership tiers via a frozen configuration object. Today: `basic`, `advanced`. Each tier has a stable storage value (decoupled from its public label) so renames don't break Sheet data.
 
 ## Functional Requirements
 

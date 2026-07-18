@@ -1,6 +1,6 @@
 {
   "title": "Professional Membership Application",
-  "description": "Apply for Re:Member Professional Membership.",
+  "description": "Apply for JimuMember Professional Membership.",
   "steps": {
     "about": {
       "title": "About You",
@@ -100,7 +100,7 @@
             "willInsurance": "Will you take out professional indemnity insurance? (recommended)",
             "listDirectory": "Do you wish to be listed as a practicing member in our public directory?",
             "provideCriminalCheck": "Are you willing to provide a current criminal background check?",
-            "attendMeetings": "Are you willing to attend regular Re:Member meetings and events, and engage with and support your local Re:Member community?",
+            "attendMeetings": "Are you willing to attend regular JimuMember meetings and events, and engage with and support your local JimuMember community?",
             "workRemotely": "Are you willing to work remotely where there is no other available Professional Member in a Client's area?"
           }
         }
@@ -177,10 +177,10 @@
           "label": "I confirm that the information I have provided is true and accurate to the best of my knowledge."
         },
         "ethics": {
-          "label": "I agree to abide by the Re:Member Code of Ethics and Scope of Practice."
+          "label": "I agree to abide by the JimuMember Code of Ethics and Scope of Practice."
         },
         "scope": {
-          "label": "I understand and will work within the Re:Member Scope of Practice."
+          "label": "I understand and will work within the JimuMember Scope of Practice."
         },
         "memberServices": {
           "label": "I agree to actively provide Member Services."
@@ -195,7 +195,7 @@
           "label": "I am willing to provide a current criminal background check."
         },
         "meetings": {
-          "label": "I am willing to attend regular Re:Member meetings and events, and engage with and support my local Re:Member community."
+          "label": "I am willing to attend regular JimuMember meetings and events, and engage with and support my local JimuMember community."
         }
       }
     },

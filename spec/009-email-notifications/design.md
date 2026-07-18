@@ -51,7 +51,7 @@ async function sendEmail({ to, subject, body }: { to: string; subject: string; b
 ```typescript
 function orgContext() {
   return {
-    orgName: process.env.ORG_NAME ?? 'Re:Member',
+    orgName: process.env.ORG_NAME ?? 'JimuMember',
     supportEmail: process.env.SUPPORT_EMAIL ?? 'support@example.com',
     adminEmail: process.env.ADMIN_EMAIL ?? 'admin@example.com',
     publicUrl: process.env.PUBLIC_ORG_URL ?? 'https://example.com',

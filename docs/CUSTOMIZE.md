@@ -1,6 +1,6 @@
-# Customizing Re:Member before deploy
+# Customizing JimuMember before deploy
 
-Re:Member ships as a working blueprint with sample form content from a single
+JimuMember ships as a working blueprint with sample form content from a single
 professional-membership organisation. Before you point it at real applicants,
 walk this list.
 
@@ -10,7 +10,7 @@ Set these in `.env` (local) and as Fly secrets in production:
 
 | Var | Purpose | Default in `.env.example` |
 |-----|---------|---------------------------|
-| `ORG_NAME` | Display name shown in email subjects + bodies | `Re:Member` |
+| `ORG_NAME` | Display name shown in email subjects + bodies | `JimuMember` |
 | `SUPPORT_EMAIL` | Reply-To for transactional emails; **fallback** recipient for `advanced_payment_received` (see §6a) | `membership@example.com` |
 | `ADMIN_EMAIL` | **Fallback** recipient for application + renewal notifications when no sheet rule matches (see §6a) | `admin@example.com` |
 | `PUBLIC_ORG_URL` | Public website URL shown in member emails | `https://example.com` |
@@ -85,7 +85,7 @@ Webhook endpoints (configure in Stripe Dashboard):
 Mailgun is the sole transactional-email provider (all three vars required):
 
 - `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_FROM`
-  (e.g. `Re:Member <no-reply@mg.your-domain.example>`)
+  (e.g. `JimuMember <no-reply@mg.your-domain.example>`)
 
 `/api/health` reports `email: not_configured` (and the whole check goes
 `degraded`) until these are set. See `docs/runbooks/mailgun-setup.md`.
@@ -234,7 +234,7 @@ them in place with the same care you would for any production `.astro`.
 
 ## 8. What it costs to run (TCO)
 
-Re:Member has no license fee — the total cost of ownership is infrastructure
+JimuMember has no license fee — the total cost of ownership is infrastructure
 plus payment processing plus volunteer/developer time. Figures below are USD,
 verified July 2026. Re-check quarterly; vendor pricing moves.
 
@@ -257,7 +257,7 @@ Annual totals, ~$30,000 payment volume, annual-billing SaaS prices:
 
 | Platform | Subscription/yr | Platform fees | Processing | Total/yr |
 |----------|----------------|---------------|------------|----------|
-| **Re:Member** | $120–360 (infra) | $0 | ~$960 | **~$1,080–1,320** |
+| **JimuMember** | $120–360 (infra) | $0 | ~$960 | **~$1,080–1,320** |
 | MemberPlanet Essentials | $600 | $600 (2% of payments) | ~$990 | ~$2,190 |
 | WildApricot (500-contact tier) | $1,663 | $0¹ | ~$960 | ~$2,623 |
 | Memberful Standard | $588 | $1,470 (4.9% of payments) | ~$960 | ~$3,018 |
@@ -268,9 +268,9 @@ WildApricot's 20% subscription surcharge (~$333/yr on this tier).
 ### The honest caveat
 
 The table excludes labor. SaaS platforms bundle onboarding, hosting, and
-support; Re:Member assumes someone technical deploys and maintains it (this
+support; JimuMember assumes someone technical deploys and maintains it (this
 doc is that person's job description). If your org pays a developer even a few
-hours a month at market rates, the gap narrows or inverts. Re:Member fits orgs
+hours a month at market rates, the gap narrows or inverts. JimuMember fits orgs
 with a technical volunteer and a contact list big enough to feel SaaS
 per-contact pricing — roughly the 250–5,000 contact range, where WildApricot
 runs $82–485/mo.

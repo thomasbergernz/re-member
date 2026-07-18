@@ -1,6 +1,6 @@
-# Deploy Re:Member for a new organisation
+# Deploy JimuMember for a new organisation
 
-This is the entry-point playbook for standing up a fresh Re:Member instance. Follow it from Phase 0 through Phase 15 — every phase has concrete commands and a verification step that produces a machine-checkable signal.
+This is the entry-point playbook for standing up a fresh JimuMember instance. Follow it from Phase 0 through Phase 15 — every phase has concrete commands and a verification step that produces a machine-checkable signal.
 
 The blueprint ships with fictional sample form content (competencies, declarations, document types) as a placeholder. Before pointing it at real applicants, replace that content (Phase 11) and rename everything that mentions the blueprint org (Phase 1).
 
@@ -12,7 +12,7 @@ The blueprint ships with fictional sample form content (competencies, declaratio
 
 | Input | Example (example.com) | Where it lands |
 |---|---|---|
-| Org display name | "Re:Member Member Services" | `ORG_NAME` |
+| Org display name | "JimuMember Member Services" | `ORG_NAME` |
 | Org public URL | `https://example.com` | `PUBLIC_ORG_URL` |
 | Reply-To mailbox | `membership@example.com` | `SUPPORT_EMAIL` |
 | Admin notification mailbox | `admin@example.com` | `ADMIN_EMAIL` |
@@ -85,7 +85,7 @@ The numbering is fixed by tier definition order. Adding a 3rd tier is one entry 
 ## 1. Clone & rename
 
 ```sh
-git clone https://github.com/your-github-username/re-member.git acme-member
+git clone https://github.com/your-github-username/jimumember.git acme-member
 cd acme-member
 git remote rename origin upstream
 
@@ -140,7 +140,7 @@ Push the rename commit only after confirming the guards work. To silence spam fr
 One project per client. Pick a name matching the client (e.g. `acme-member-sheets`).
 
 ```sh
-gcloud projects create acme-member-sheets --name="Re:Member Sheets"
+gcloud projects create acme-member-sheets --name="JimuMember Sheets"
 gcloud config set project acme-member-sheets
 
 # Enable the three APIs
@@ -148,7 +148,7 @@ gcloud services enable sheets.googleapis.com drive.googleapis.com docs.googleapi
 
 # Create the SA — name matches the convention from the existing deployment
 gcloud iam service-accounts create remember-sheets \
-  --display-name="Re:Member Sheets/Drive/Docs"
+  --display-name="JimuMember Sheets/Drive/Docs"
 
 # Create a JSON key — the PEM equivalent goes into GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY
 gcloud iam service-accounts keys create ./sa-key.json \
@@ -281,11 +281,11 @@ shred -u /tmp/sa-key.json
 ```sh
 op create item login \
   --title="GCP SA Key — acme" \
-  --vault="Re:Member Deploys" \
+  --vault="JimuMember Deploys" \
   sa-key.json=@./sa-key.json
 ```
 
-Retrieval: `op read "op://Re:Member Deploys/GCP SA Key — acme/sa-key.json" | jq -r .private_key` → Fly secret.
+Retrieval: `op read "op://JimuMember Deploys/GCP SA Key — acme/sa-key.json" | jq -r .private_key` → Fly secret.
 
 **Either pattern eliminates the plaintext-on-laptop risk** without changing the Fly secrets model. The credentials live in an encrypted vault with MFA + audit log; the deploying party's laptop is a client of that vault, not a store.
 
@@ -298,7 +298,7 @@ Retrieval: `op read "op://Re:Member Deploys/GCP SA Key — acme/sa-key.json" | j
 
 ### 3a. Impersonation user setup (the service-account target)
 
-The impersonation user is **never logged into by a human** — it's the `subject` claim that the Re:Member service account puts into its JWT. Because DWD authenticates the SA via its own private key (not via the impersonation user's password), 2-Step Verification is irrelevant for the impersonation user.
+The impersonation user is **never logged into by a human** — it's the `subject` claim that the JimuMember service account puts into its JWT. Because DWD authenticates the SA via its own private key (not via the impersonation user's password), 2-Step Verification is irrelevant for the impersonation user.
 
 Configure as follows:
 
@@ -318,7 +318,7 @@ For real admin users (the deploying party + the client's volunteer admin):
 - Allow authenticator app + hardware security keys (YubiKey etc.) as 2SV methods.
 - Recovery codes: print and store in BW for each admin user.
 
-This is best practice and orthogonal to Re:Member — Re:Member's runtime doesn't care if admins have 2SV.
+This is best practice and orthogonal to JimuMember — JimuMember's runtime doesn't care if admins have 2SV.
 
 ### 3c. Verify
 
@@ -452,7 +452,7 @@ Cross-reference: `docs/runbooks/stripe-first-products.md` (full deep-dive).
 
 ### Price types matter
 
-Re:Member depends on a specific price type for each env var — get this wrong and checkouts fail at runtime:
+JimuMember depends on a specific price type for each env var — get this wrong and checkouts fail at runtime:
 
 | Env var | Type | Why |
 |---|---|---|
@@ -466,7 +466,7 @@ Run after `stripe login` (one-time, opens browser, defaults to test mode).
 ```sh
 stripe login
 
-export ORG_DISPLAY_NAME="Re:Member"
+export ORG_DISPLAY_NAME="JimuMember"
 export STAGING_WEBHOOK_URL="https://acme-staging.fly.dev/api/stripe-webhook"
 export BASIC_AMOUNT=7500       # $75.00 in cents
 export ADVANCED_AMOUNT=15000   # $150.00 in cents
@@ -550,7 +550,7 @@ fly apps create acme-production --org acme-member
 
 # Set all 23+ secrets in one shot
 fly secrets set -a acme-staging \
-  ORG_NAME="Re:Member Member Services" \
+  ORG_NAME="JimuMember Member Services" \
   SUPPORT_EMAIL="membership@example.com" \
   ADMIN_EMAIL="admin@example.com" \
   PUBLIC_ORG_URL="https://example.com" \
@@ -571,7 +571,7 @@ fly secrets set -a acme-staging \
   GOOGLE_WORKSPACE_IMPERSONATE_USER="it-admin@example.com" \
   MAILGUN_API_KEY="key-..." \
   MAILGUN_DOMAIN="mg.example.com" \
-  MAILGUN_FROM="Re:Member <no-reply@mg.example.com>"
+  MAILGUN_FROM="JimuMember <no-reply@mg.example.com>"
 ```
 
 Run the same block with `-a acme-production` and live Stripe keys (`sk_live_…`).
@@ -699,7 +699,7 @@ This section runs the playbook end-to-end with concrete values for the user's fi
 
 | Phase | example.com value |
 |---|---|
-| Org name | `Re:Member Member Services` |
+| Org name | `JimuMember Member Services` |
 | Workspace primary domain | `example.com` |
 | Impersonation user | `it-admin@example.com` |
 | GCP project | `acme-member-sheets` |
@@ -711,7 +711,7 @@ This section runs the playbook end-to-end with concrete values for the user's fi
 | Public URL | `https://example.com` |
 | Staging URL | `https://acme-staging.fly.dev` |
 | Drive folder names | `acme/applications/`, `acme/review-docs/` |
-| Sheet name | `Re:Member Member Test` |
+| Sheet name | `JimuMember Member Test` |
 | Stripe currency | `nzd` |
 | Stripe tier numbering | 1 = basic, 2 = advanced |
 
@@ -809,7 +809,7 @@ To enable per deployment:
 2. Set the secret on the Fly app:
 
 ```sh
-fly secrets set SENTRY_DSN="https://…ingest.sentry.io/…" -a <client>-re-member
+fly secrets set SENTRY_DSN="https://…ingest.sentry.io/…" -a <client>-jimumember
 ```
 
 That's it — `Sentry.init` runs lazily on first captured exception path.

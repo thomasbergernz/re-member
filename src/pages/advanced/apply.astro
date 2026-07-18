@@ -10,7 +10,7 @@ const token = Astro.url.searchParams.get("token");
 
 <BaseLayout
   title="Professional Membership Application"
-  description="Apply for Professional Membership with Re:Member."
+  description="Apply for Professional Membership with JimuMember."
 >
   <section class="bg-white border border-gray-200 rounded-xl p-4">
     <a
@@ -18,11 +18,11 @@ const token = Astro.url.searchParams.get("token");
       target="_blank"
       rel="noopener noreferrer"
       class="inline-block mb-3 sm:mb-4"
-      aria-label="Re:Member — visit example.com"
+      aria-label="JimuMember — visit example.com"
     >
       <img
         src="/logo.svg"
-        alt="Re:Member"
+        alt="JimuMember"
         class="h-14 sm:h-20 w-auto"
         width="357"
         height="144"
@@ -221,7 +221,7 @@ const token = Astro.url.searchParams.get("token");
     <h2 class="m-0 mb-4 text-xl">Application Complete</h2>
     <p>Your Professional Membership application has been completed. Thank you!</p>
     <p class="mt-4">
-      <a href="https://example.com" class="text-blue-600 hover:text-blue-700">Return to Re:Member website</a>
+      <a href="https://example.com" class="text-blue-600 hover:text-blue-700">Return to JimuMember website</a>
     </p>
   </section>
 
@@ -300,7 +300,7 @@ const token = Astro.url.searchParams.get("token");
   // here because the schema's docTypes list doesn't carry HTML — pure data.
   const DOC_DESCRIPTIONS = {
     training: "Evidence of completed training",
-    ethics: "Signed Re:Member Code of Ethics and Scope of Practice",
+    ethics: "Signed JimuMember Code of Ethics and Scope of Practice",
     criminal: "Criminal background check — check your local requirements",
     planning_cert: "4 modules completed",
     specialist_training: "Specialist training provider, 3 modules completed",
@@ -338,7 +338,7 @@ const token = Astro.url.searchParams.get("token");
     { label: "Handover & Closing Practices", description: "Be knowledgeable and comfortable supporting the practical steps involved in closing out an engagement." },
     { label: "Transition & Support Awareness", description: "Offer compassionate support and connect to resources during periods of change, understanding different ways people process transitions." },
     { label: "Interdisciplinary Collaboration", description: "Work alongside other professionals and community organisations relevant to the client's needs." },
-    { label: "Mentorship", description: "Be willing to mentor other Re:Member members from time to time where appropriate." },
+    { label: "Mentorship", description: "Be willing to mentor other JimuMember members from time to time where appropriate." },
   ];
 
   let currentStep = 0;

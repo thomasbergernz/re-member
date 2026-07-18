@@ -34,7 +34,7 @@ All transactional email goes through Mailgun. Seven named senders cover the full
 1. New advanced applicant first save → `sendResumeLink()` called → email delivered within 30s.
 2. Advanced payment → confirmation + admin notification.
 3. Renewal payment → admin notification + (advanced only) PD-log link.
-4. Email contains correct org identity (e.g. "Re:Member" not a prior org's name).
+4. Email contains correct org identity (e.g. "JimuMember" not a prior org's name).
 5. Mailgun region = `eu` → API base URL switches to `api.eu.mailgun.net`.
 
 ## Out of Scope

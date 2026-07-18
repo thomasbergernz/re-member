@@ -44,7 +44,7 @@ function getEmailSubjectPrefix(): string {
 //                       On a Mailgun sandbox this is the sandbox hostname;
 //                       only verified recipients will receive mail.
 //   MAILGUN_FROM      — full From header value, e.g.
-//                       "Re:Member <no-reply@mg.example.com>"
+//                       "JimuMember <no-reply@mg.example.com>"
 
 function getMailgunConfig(): {
   apiKey: string;
@@ -66,7 +66,7 @@ function getMailgunConfig(): {
 
 // Org identity — read once at call time so tests can monkey-patch env.
 function getOrgName(): string {
-  return process.env.ORG_NAME?.trim() || "Re:Member";
+  return process.env.ORG_NAME?.trim() || "JimuMember";
 }
 function getSupportEmail(): string {
   return process.env.SUPPORT_EMAIL?.trim() || "membership@example.com";

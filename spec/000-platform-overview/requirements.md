@@ -6,7 +6,7 @@
 
 ## Overview
 
-Re:Member is an Astro + Stripe + Google-Workspace membership platform blueprint. It manages the full member lifecycle for a small membership organisation: application, review, payment, renewal, and post-renewal professional-development (PD) logging. Sheets is the database, Drive is the document store, Docs is the review surface. No CMS. Volunteer admin runs it from a spreadsheet.
+JimuMember is an Astro + Stripe + Google-Workspace membership platform blueprint. It manages the full member lifecycle for a small membership organisation: application, review, payment, renewal, and post-renewal professional-development (PD) logging. Sheets is the database, Drive is the document store, Docs is the review surface. No CMS. Volunteer admin runs it from a spreadsheet.
 
 This spec is the **index** — it establishes shared vocabulary (state machine, tier abstraction, sheet contracts, env-var taxonomy) used by every feature spec. New requirements referenced from a feature spec must trace back to a REQ-ID defined here or in the feature spec itself.
 

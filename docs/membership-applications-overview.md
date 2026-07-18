@@ -1,4 +1,4 @@
-# Re:Member Membership Applications — User Overview
+# JimuMember Membership Applications — User Overview
 
 A complete, end-to-end guide to how the Professional and Associate Membership applications work — from starting a form to having a paid subscription and a review document generated.
 
@@ -100,7 +100,7 @@ Every "Continue" or "Back" button press triggers an autosave:
 | Category | Description |
 |---|---|
 | `training` | Certificates of training (may be multiple) |
-| `ethics` | Signed Re:Member Code of Ethics and Scope of Practice |
+| `ethics` | Signed JimuMember Code of Ethics and Scope of Practice |
 | `criminal` | Criminal background check |
 | `planning_cert` | Advance Planning Certification (4 modules) |
 | `specialist_training` | Specialist Online Training Module (3 modules) |
@@ -325,7 +325,7 @@ The single-page form collects:
 - Business name (optional)
 
 **Additional Information:**
-- Interest in joining Re:Member (free text, required)
+- Interest in joining JimuMember (free text, required)
 - Current training details (free text, required)
 - Whether to be listed on the Associate Members page (`yes` / `no`)
 - Listing details (required if `listOnPage = yes`)

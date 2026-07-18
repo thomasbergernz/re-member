@@ -1,11 +1,11 @@
 {
-  "name": "re-member",
+  "name": "jimumember",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/thomasbergernz/re-member.git"
+    "url": "https://github.com/Confluenceservice/jimumember.git"
   },
   "type": "module",
   "scripts": {

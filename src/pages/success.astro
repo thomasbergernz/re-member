@@ -62,14 +62,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }, 1000);
     } else {
       messageEl!.textContent = "Thank you. Your subscription checkout completed successfully.";
-      formLinkText!.textContent = "Return to the Re:Member website:";
+      formLinkText!.textContent = "Return to the JimuMember website:";
       formLinkEl!.textContent = "example.com/membership";
       formLinkEl!.href = "https://www.example.com/membership";
       nextStepsEl!.classList.remove("hidden");
     }
   } catch {
     messageEl!.textContent = "Thank you. Your subscription checkout completed successfully.";
-    formLinkText!.textContent = "Return to the Re:Member website:";
+    formLinkText!.textContent = "Return to the JimuMember website:";
     formLinkEl!.textContent = "example.com/membership";
     formLinkEl!.href = "https://www.example.com/membership";
     nextStepsEl!.classList.remove("hidden");

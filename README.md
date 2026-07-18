@@ -1,4 +1,4 @@
-# Re:Member — Membership Platform Blueprint
+# JimuMember — Membership Platform Blueprint
 
 Membership + onboarding + renewal stack for volunteer-run orgs. Stripe-backed. Sheets-as-DB. Built for not-for-profits and small membership clubs whose admin time is precious and whose treasurer shouldn't spend weekends chasing forms and receipts.
 
@@ -8,7 +8,7 @@ This is a **blueprint**, not a hosted product — fork it, customise the sample 
 
 ## What it does
 
-End-to-end member lifecycle for Re:Member (and any similar two-tier membership org):
+End-to-end member lifecycle for JimuMember (and any similar two-tier membership org):
 
 - **Basic membership signup** — one-page checkout, Stripe-hosted payment.
 - **Advanced membership application** — 8-step digital form (about you, training, experience, core competencies, referees, declarations), multi-file document upload (training certs, ethics, criminal check, advance planning certification, specialist training, fundamentals of practice, insurance), resume-by-link, autosave, admin review via auto-generated Google Doc.
@@ -86,7 +86,7 @@ See `src/lib/forms/tiers.ts` for the N → tier-slug mapping.
 ### Mailgun (transactional email)
 - `MAILGUN_API_KEY` — private API key (`key-…`)
 - `MAILGUN_DOMAIN` — verified sending domain (e.g. `mg.example.com`)
-- `MAILGUN_FROM` — full From header (e.g. `Re:Member <no-reply@mg.example.com>`)
+- `MAILGUN_FROM` — full From header (e.g. `JimuMember <no-reply@mg.example.com>`)
 
 Ops runbook: `docs/runbooks/mailgun-setup.md`
 

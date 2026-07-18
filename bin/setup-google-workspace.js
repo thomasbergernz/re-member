@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * setup-google-workspace — Phase 4 automation for the Re:Member blueprint.
+ * setup-google-workspace — Phase 4 automation for the JimuMember blueprint.
  *
- * Idempotently creates the Drive folders + spreadsheet that Re:Member needs.
+ * Idempotently creates the Drive folders + spreadsheet that JimuMember needs.
  * Runs after Phase 5 (Workspace DWD authorized) so the SA can impersonate.
  *
  * Two modes for fetching the SA key:

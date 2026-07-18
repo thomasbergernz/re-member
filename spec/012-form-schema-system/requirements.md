@@ -6,7 +6,7 @@
 
 ## Overview
 
-Every form in Re:Member is data-driven via a two-file contract: a TypeScript schema defining structure + validation + storage mapping, and a JSON content file holding user-facing strings. Non-developers edit the JSON. Engineers own the TS. This split lets orgs rebrand form copy without touching logic.
+Every form in JimuMember is data-driven via a two-file contract: a TypeScript schema defining structure + validation + storage mapping, and a JSON content file holding user-facing strings. Non-developers edit the JSON. Engineers own the TS. This split lets orgs rebrand form copy without touching logic.
 
 ## Functional Requirements
 

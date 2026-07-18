@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# setup-stripe-test.sh — Phase 7 automation for the Re:Member blueprint.
+# setup-stripe-test.sh — Phase 7 automation for the JimuMember blueprint.
 #
 # Idempotently creates the Stripe products, prices, and webhook endpoint that
-# Re:Member needs, using the Stripe CLI in TEST mode. Run after `stripe login`.
+# JimuMember needs, using the Stripe CLI in TEST mode. Run after `stripe login`.
 #
-# Price types (these matter — Re:Member depends on them):
+# Price types (these matter — JimuMember depends on them):
 #   - Application prices (STRIPE_PRICE_1 / STRIPE_PRICE_2): RECURRING annual.
 #     The application checkout charges a one-time prorated first term, then the
 #     webhook creates a deferred subscription using this recurring price.
@@ -28,7 +28,7 @@
 #
 set -euo pipefail
 
-ORG_DISPLAY_NAME="${ORG_DISPLAY_NAME:-Re:Member}"
+ORG_DISPLAY_NAME="${ORG_DISPLAY_NAME:-JimuMember}"
 STAGING_WEBHOOK_URL="${STAGING_WEBHOOK_URL:?Set STAGING_WEBHOOK_URL to the staging /api/stripe-webhook endpoint}"
 CURRENCY="${CURRENCY:-nzd}"
 BASIC_AMOUNT="${BASIC_AMOUNT:-7500}"

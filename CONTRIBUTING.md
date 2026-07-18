@@ -1,4 +1,4 @@
-# Contributing to Re:Member
+# Contributing to JimuMember
 
 Thanks for helping. This is a small project run by volunteers' spare time — the conventions below exist to keep review fast.
 

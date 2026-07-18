@@ -1,6 +1,6 @@
-# Re:Member Notifications
+# JimuMember Notifications
 
-> When and how Re:Member sends notifications to applicants and members.
+> When and how JimuMember sends notifications to applicants and members.
 
 ---
 
@@ -17,11 +17,11 @@
 **Template:** `sendResumeLink(toEmail, fullName, resumeLink, applicantId?)` in `src/lib/email-sender.ts`
 
 ```
-Subject: Your Re:Member Professional Membership Application
+Subject: Your JimuMember Professional Membership Application
 
 Dear {fullName},
 
-Thank you for starting your Professional Membership application with Re:Member.
+Thank you for starting your Professional Membership application with JimuMember.
 
 To continue your application, please click the link below:
 {resumeLink}
@@ -31,7 +31,7 @@ This link will allow you to upload your required documents and complete your app
 If you did not start this application, please ignore this email.
 
 Best regards,
-Re:Member
+JimuMember
 ```
 
 **Delivery:** Non-blocking — failures are logged but do not fail the application submission.
@@ -48,7 +48,7 @@ The following notifications are described in the UI but **not yet implemented**:
 |---|---|---|---|
 | Document verification confirmation | "You will receive confirmation once your documents have been verified" | `success-upload.astro` | Not implemented |
 | Membership activation confirmation | "You will receive confirmation once your membership has been activated" | `associate-membership.astro` | Not implemented |
-| Payment receipt | — | — | **Stripe handles it** — Re:Member passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to that address. |
+| Payment receipt | — | — | **Stripe handles it** — JimuMember passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to that address. |
 | Subscription renewal reminder | — | — | Not implemented |
 | Application review completion | — | — | Not implemented |
 
@@ -61,16 +61,16 @@ The following notifications are described in the UI but **not yet implemented**:
 **Template:** `sendProfessionalConfirmation(toEmail, fullName, applicantId?)` in `src/lib/email-sender.ts`
 
 ```
-Subject: Your Re:Member Professional Membership Application
+Subject: Your JimuMember Professional Membership Application
 
 Dear {fullName},
 
-Thank you for your application to become a Professional Member of Re:Member. We will process your application and get back to you as soon as we can.
+Thank you for your application to become a Professional Member of JimuMember. We will process your application and get back to you as soon as we can.
 
 We look forward to seeing you soon.
 
 Kia ora,
-Re:Member Committee
+JimuMember Committee
 ```
 
 **Delivery:** Non-blocking — failures are logged but do not fail webhook processing.
@@ -79,7 +79,7 @@ Re:Member Committee
 
 ---
 
-### 3. Internal Application Notification (Re:Member Membership Team)
+### 3. Internal Application Notification (JimuMember Membership Team)
 
 **Trigger:** After `createApplicationReviewDoc()` completes successfully for professional membership
 
@@ -97,7 +97,7 @@ Review document: {docUrl}
 
 Please log in to review the application and continue the membership process.
 
-Re:Member
+JimuMember
 ```
 
 **Delivery:** Non-blocking — failures are logged but do not fail webhook processing.
@@ -117,9 +117,9 @@ Re:Member
 **Template:** `sendAssociateConfirmation(toEmail, fullName, listOnPage, associateApplicationId?)` in `src/lib/email-sender.ts`
 
 ```
-Subject: Welcome to Re:Member — Associate Membership Confirmed
+Subject: Welcome to JimuMember — Associate Membership Confirmed
 
-Welcome to Re:Member ☺
+Welcome to JimuMember ☺
 
 Dear {fullName},
 
@@ -140,7 +140,7 @@ and any ideas you have to support you in your work.
 Again, welcome on board ☺
 
 Warm regards,
-Re:Member Committee
+JimuMember Committee
 ```
 
 **Delivery:** Non-blocking — fires after Google Doc creation succeeds.
@@ -151,7 +151,7 @@ Re:Member Committee
 
 ### 5. Stripe Payment Receipt
 
-**Trigger:** Stripe Checkout — Re:Member passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to the applicant.
+**Trigger:** Stripe Checkout — JimuMember passes `receipt_email` in the Checkout Session API call, which overrides Dashboard automatic receipt settings. Stripe sends its own branded receipt directly to the applicant.
 
 - **With `receipt_email` in the API call:** Stripe sends a receipt to that specific address regardless of Dashboard settings
 - **Without `receipt_email`:** Stripe uses the Dashboard setting (automatic receipts on/off)
@@ -169,7 +169,7 @@ Re:Member Committee
 ```env
 MAILGUN_API_KEY=key-...
 MAILGUN_DOMAIN=mg.example.com
-MAILGUN_FROM=Re:Member Membership Notifications <no-reply@mg.example.com>
+MAILGUN_FROM=JimuMember Membership Notifications <no-reply@mg.example.com>
 ```
 
 `MAILGUN_FROM` should be a recognisable brand name, not "No Reply" or
@@ -227,7 +227,7 @@ import { sendEmail } from '@/lib/email-sender';
 // In your handler:
 await sendEmail({
   to: applicant.email,
-  subject: 'Your Re:Member Application - Next Steps',
+  subject: 'Your JimuMember Application - Next Steps',
   body: `Dear ${applicant.firstName},\n\n...`,
 });
 ```

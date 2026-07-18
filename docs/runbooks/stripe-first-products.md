@@ -21,7 +21,7 @@ In Stripe Dashboard → Products → **Add product**:
 | `<Client> Basic Membership` | Associate-equivalent tier | Annual |
 | `<Client> Advanced Membership` | Professional-equivalent tier | Annual |
 
-For each product, add **two prices**. The recurring/one-time type is load-bearing — Re:Member's checkout flows depend on it:
+For each product, add **two prices**. The recurring/one-time type is load-bearing — JimuMember's checkout flows depend on it:
 
 | Price | Amount | Type | Use |
 |---|---|---|---|

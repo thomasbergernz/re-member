@@ -1,6 +1,6 @@
 # Security Policy
 
-Re:Member moves money (via Stripe) and handles member personal data (via Google Workspace), so we take reports seriously.
+JimuMember moves money (via Stripe) and handles member personal data (via Google Workspace), so we take reports seriously.
 
 ## Reporting a vulnerability
 

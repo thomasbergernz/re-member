@@ -52,7 +52,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -75,7 +75,7 @@ describe("/api/health", () => {
     it("reports not_configured as degraded when STRIPE_SECRET_KEY is absent", async () => {
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -92,7 +92,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_bad";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       mockProductsList.mockRejectedValueOnce(new Error("Invalid API Key"));
 
@@ -139,7 +139,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -154,7 +154,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_bad";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       mockProductsList.mockRejectedValueOnce(new Error("Stripe down"));
 
@@ -175,7 +175,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       const GET = await getHandler();
       const res = await GET({} as never);
@@ -201,7 +201,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       mockResolveRenewalPrice.mockImplementation(async (key: string) => {
         if (key === "adv_renewal") throw new Error("PRICE_INACTIVE: no active price");
@@ -222,7 +222,7 @@ describe("/api/health", () => {
       process.env.STRIPE_SECRET_KEY = "sk_test_ok";
       process.env.MAILGUN_API_KEY = "key-test";
       process.env.MAILGUN_DOMAIN = "mg.example.com";
-      process.env.MAILGUN_FROM = "Re:Member <no-reply@mg.example.com>";
+      process.env.MAILGUN_FROM = "JimuMember <no-reply@mg.example.com>";
 
       mockResolveRenewalPrice.mockRejectedValue(new Error("MISSING_CONFIG: STRIPE_PRODUCT_PM_RENEWAL not set"));
 

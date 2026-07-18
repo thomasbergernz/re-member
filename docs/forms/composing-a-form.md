@@ -1,6 +1,6 @@
 # Composing a form (for non-developers)
 
-Re:Member's forms are split into two files:
+JimuMember's forms are split into two files:
 
 - **`*.ts`** — owned by engineering. Defines the field *types*, validators, sheet column mapping, and any conditional logic. Treated as a contract.
 - **`*.content.json`** — yours to edit. Defines the field *labels*, descriptions, placeholders, help text, and ordering. No code review required for content-only changes.

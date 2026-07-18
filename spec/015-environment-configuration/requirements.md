@@ -6,7 +6,7 @@
 
 ## Overview
 
-Re:Member is configured entirely via environment variables. No `.env` checked in. No config file at runtime. Every Fly secret maps to one of five categories: Stripe, Google Workspace, Mailgun, org identity, deployment tenancy.
+JimuMember is configured entirely via environment variables. No `.env` checked in. No config file at runtime. Every Fly secret maps to one of five categories: Stripe, Google Workspace, Mailgun, org identity, deployment tenancy.
 
 ## Functional Requirements
 

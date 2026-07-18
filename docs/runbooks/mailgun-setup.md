@@ -1,4 +1,4 @@
-# Mailgun setup for Re:Member transactional email
+# Mailgun setup for JimuMember transactional email
 
 Replaces the previous Gmail OAuth path. Use this when standing up Mailgun
 for a new environment, rotating the API key, or moving from a sandbox
@@ -50,12 +50,12 @@ the domain in its dashboard once records resolve.
 fly secrets set -a remember \
   MAILGUN_API_KEY=key-... \
   MAILGUN_DOMAIN=mg.example.com \
-  MAILGUN_FROM="Re:Member <no-reply@mg.example.com>"
+  MAILGUN_FROM="JimuMember <no-reply@mg.example.com>"
 
 fly secrets set -a remember-production \
   MAILGUN_API_KEY=key-... \
   MAILGUN_DOMAIN=mg.example.com \
-  MAILGUN_FROM="Re:Member <no-reply@mg.example.com>"
+  MAILGUN_FROM="JimuMember <no-reply@mg.example.com>"
 ```
 
 Restart the running machine so the new secrets are injected:
@@ -131,7 +131,7 @@ Mitigations (in order of leverage):
 1. **Sender reputation** — the only durable fix. Volume of legitimate
    sends + recipient "Not Junk" + add to contacts builds the
    domain's reputation over days/weeks. No way to shortcut this.
-2. **From name** — use a recognisable brand ("Re:Member Membership
+2. **From name** — use a recognisable brand ("JimuMember Membership
    Notifications"), not "No Reply" or "noreply". Generic names are
    penalised by content classifiers.
 3. **List-Unsubscribe header** — RFC 8058. Optional for transactional
@@ -142,7 +142,7 @@ Mitigations (in order of leverage):
    "h:List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
    ```
 4. **Recipient training** — first time an applicant receives an
-   Re:Member email, ask them to mark "Not Junk" + add
+   JimuMember email, ask them to mark "Not Junk" + add
    `no-reply@mg.example.com` to contacts. This is a one-time ask
    that unblocks the rest of their journey.
 

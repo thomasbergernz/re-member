@@ -1,4 +1,4 @@
-# Google Workspace Domain-Wide Delegation for Re:Member Drive Uploads
+# Google Workspace Domain-Wide Delegation for JimuMember Drive Uploads
 
 Use this when Drive uploads 403 with `storageQuotaExceeded` and the cause is
 the service account (SA) having no storage. Symptom in logs:
