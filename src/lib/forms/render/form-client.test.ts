@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { assertOptionValuesExist } from "./form-client";
-import type { FormSchema } from "../types";
+import { assertOptionValuesExist, assertContentMatchesSchema } from "./form-client";
+import type { FormContent, FormSchema } from "../types";
+import { schema as advancedApplySchema } from "../schemas/advancedApply";
+import advancedApplyContent from "../schemas/advancedApply.content.json";
 
 describe("assertOptionValuesExist (pure — no DOM)", () => {
   it("returns no violations for a schema with no visibleWhen", () => {
@@ -66,6 +68,36 @@ describe("assertOptionValuesExist (pure — no DOM)", () => {
       storage: { kind: "sheet", sheetName: "X", columnMap: {}, rowFactory: "appendRenewal" },
     };
     expect(assertOptionValuesExist(schema).length).toBe(1);
+  });
+});
+
+describe("assertContentMatchesSchema (content type mirror — pure, no DOM)", () => {
+  const content = advancedApplyContent as FormContent;
+
+  it("finds no drift for advancedApply — every content type matches the schema", () => {
+    expect(assertContentMatchesSchema(advancedApplySchema, content)).toEqual([]);
+  });
+
+  it("checks nested repeatable item + group fields, not just top-level", () => {
+    // qualifications.name (text) and referees.referee1Email (email) are nested;
+    // a clean run means the walker reached them.
+    const violations = assertContentMatchesSchema(advancedApplySchema, content);
+    expect(violations).toEqual([]);
+  });
+
+  it("flags a content type that drifts from the schema type", () => {
+    // Deep-clone and corrupt one entry: firstName is "text" in the schema.
+    const drifted = JSON.parse(JSON.stringify(content)) as FormContent;
+    drifted.steps.about.fields.firstName.type = "number";
+    const violations = assertContentMatchesSchema(advancedApplySchema, drifted);
+    expect(violations.length).toBe(1);
+    expect(violations[0]).toContain("about.firstName");
+  });
+
+  it("ignores content entries that omit type (incremental adoption)", () => {
+    const partial = JSON.parse(JSON.stringify(content)) as FormContent;
+    delete partial.steps.about.fields.firstName.type;
+    expect(assertContentMatchesSchema(advancedApplySchema, partial)).toEqual([]);
   });
 });
 

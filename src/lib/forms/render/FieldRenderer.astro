@@ -46,9 +46,14 @@ interface Props {
 
 const { field, content, value, namePrefix, readonly, error } = Astro.props;
 
-// Resolve contentKey → { label, help, placeholder, options }
+// Resolve contentKey → { label, help, placeholder, options, layout }.
+// The content entry key is everything AFTER the first dot (the step id), so a
+// nested item like "training.qualifications.name" resolves to the
+// "qualifications.name" entry — not the parent "qualifications" repeatable.
 function resolveContent(key: string) {
-  const [stepId, fieldKey] = key.split(".");
+  const firstDot = key.indexOf(".");
+  const stepId = firstDot === -1 ? key : key.slice(0, firstDot);
+  const fieldKey = firstDot === -1 ? "" : key.slice(firstDot + 1);
   const step = content.steps[stepId];
   const fieldContent = step?.fields[fieldKey];
   return {
@@ -56,10 +61,14 @@ function resolveContent(key: string) {
     help: fieldContent?.help,
     placeholder: fieldContent?.placeholder,
     optionLabels: fieldContent?.options ?? {},
+    layout: fieldContent?.layout,
   };
 }
 
-const { label, help, placeholder, optionLabels } = resolveContent(field.contentKey);
+const { label, help, placeholder, optionLabels, layout } = resolveContent(field.contentKey);
+// Grid presentational layout (content-JSON driven; default "table"). Purely
+// visual — the input name/value contract below is identical across layouts.
+const gridLayout = layout ?? "table";
 const inputName = namePrefix ? `${namePrefix}.${field.name}` : field.name;
 // Use the field's path as the DOM id (with `.` allowed for nested groups).
 // Earlier versions prefixed with `f-` and replaced dots with hyphens, which
@@ -207,7 +216,7 @@ const sigValueIsUrl = /^https?:\/\//i.test(sigValue);
     </div>
   )}
 
-  {field.type === "grid" && (
+  {field.type === "grid" && gridLayout === "table" && (
     <table class="field-grid" data-grid-name={field.name}>
       <thead>
         <tr>
@@ -231,6 +240,33 @@ const sigValueIsUrl = /^https?:\/\//i.test(sigValue);
         </tr>
       </tbody>
     </table>
+  )}
+
+  {/* Stacked / responsive grid: one labeled row per column. Same input
+      name/value as the table layout — only the wrapper markup differs. */}
+  {field.type === "grid" && gridLayout !== "table" && (
+    <div
+      class:list={["field-grid", "field-grid--stacked", gridLayout === "responsive" && "field-grid--responsive"]}
+      data-grid-name={field.name}
+      data-grid-layout={gridLayout}
+      role="group"
+      aria-label={label}
+    >
+      {(field as GridField).columns.map((col) => (
+        <div class="field-grid-row">
+          <label class="field-grid-row-label" for={`${inputName}.${col.name}`}>
+            {optionLabels[col.name] ?? col.name}
+          </label>
+          <input
+            type={col.type}
+            id={`${inputName}.${col.name}`}
+            name={`${inputName}.${col.name}`}
+            value={col.type === "text" ? "" : "true"}
+            disabled={isReadonly}
+          />
+        </div>
+      ))}
+    </div>
   )}
 
   {field.type === "signature" && (

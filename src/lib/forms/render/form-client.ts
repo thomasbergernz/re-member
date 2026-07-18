@@ -18,7 +18,7 @@
  * visibleWhen for nested groups, upload lock token-bucket, etc.).
  */
 
-import type { FieldDefinition, FormSchema } from "../types";
+import type { FieldDefinition, FieldType, FormSchema } from "../types";
 
 export interface AutosaveOptions {
   endpoint: string;
@@ -611,4 +611,44 @@ function valuesOf(source: string): string[] {
   // Extract string literals from predicate source: "yes", 'no', etc.
   const matches = source.match(/["'`]([^"'`]+)["'`]/g) ?? [];
   return matches.map((m) => m.slice(1, -1));
+}
+
+// ----------------------------------------------------------------------------
+// Content-mirror drift guard: the content JSON may carry a `type` per field for
+// self-documentation, but TS remains the source of truth. Assert every content
+// `type` that is present matches the schema field's `type`, so the JSON mirror
+// can never silently drift from the compiled schema. Returns violation strings
+// (empty when consistent). Walks groups + repeatable itemFields.
+// ----------------------------------------------------------------------------
+
+export function assertContentMatchesSchema(
+  schema: FormSchema,
+  content: FormSchema["content"],
+): string[] {
+  const violations: string[] = [];
+
+  // Resolve a field's contentKey to its content entry `type`. The entry key is
+  // everything after the first dot (step id) — mirrors resolveContent in
+  // FieldRenderer.astro so this checks exactly what the renderer resolves.
+  const resolveType = (contentKey: string): FieldType | undefined => {
+    const firstDot = contentKey.indexOf(".");
+    if (firstDot === -1) return undefined;
+    const stepId = contentKey.slice(0, firstDot);
+    const fieldKey = contentKey.slice(firstDot + 1);
+    return content.steps?.[stepId]?.fields?.[fieldKey]?.type;
+  };
+
+  const check = (field: FieldDefinition) => {
+    const jsonType = resolveType(field.contentKey);
+    if (jsonType !== undefined && jsonType !== field.type) {
+      violations.push(
+        `${field.contentKey}: content type "${jsonType}" ≠ schema type "${field.type}"`,
+      );
+    }
+    if (field.type === "group") field.fields.forEach(check);
+    if (field.type === "repeatable") field.itemFields.forEach(check);
+  };
+
+  schema.steps.forEach((step) => step.fields.forEach(check));
+  return violations;
 }

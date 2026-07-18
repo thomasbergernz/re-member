@@ -170,8 +170,41 @@
     @apply py-1 pr-3;
   }
 
-  .field-grid input[type="text"],
-  .field-grid input[type="checkbox"] {
+  .field-grid input[type="text"] {
     @apply px-3 py-2 border border-gray-200 rounded-lg;
+  }
+
+  .field-grid input[type="checkbox"],
+  .field-grid input[type="radio"] {
+    @apply w-5 h-5 align-middle;
+  }
+
+  /* Stacked layout: one labeled row per column, always vertical. */
+  .field-grid--stacked {
+    @apply flex flex-col gap-2 border-0;
+  }
+
+  .field-grid--stacked .field-grid-row {
+    @apply flex items-center justify-between gap-3 py-2 border-b border-gray-100;
+  }
+
+  .field-grid--stacked .field-grid-row-label {
+    @apply text-sm text-gray-700;
+  }
+
+  .field-grid--stacked .field-grid-row input[type="text"] {
+    @apply px-3 py-2 border border-gray-200 rounded-lg;
+  }
+
+  /* Responsive: stacked (above) on narrow screens; horizontal cells
+     (label over input) from the `sm` breakpoint up. */
+  @media (min-width: 640px) {
+    .field-grid--responsive {
+      @apply flex-row flex-wrap gap-4;
+    }
+
+    .field-grid--responsive .field-grid-row {
+      @apply flex-col items-start justify-start gap-1 py-0 border-b-0;
+    }
   }
 }

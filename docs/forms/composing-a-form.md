@@ -87,6 +87,41 @@ You cannot:
 - Add or remove fields (those changes live in the TS file)
 - Change option `value`s (the keys in the `options` map)
 
+## 3a. The `type` mirror + grid `layout`
+
+Each field entry may now carry a `"type"` — a **read-only mirror** of the field
+type declared in the `.ts` schema:
+
+```jsonc
+"firstName": { "type": "text", "label": "First name" }
+```
+
+The TypeScript schema stays the single source of truth. The mirror exists so the
+content file is self-describing (you can see at a glance that `firstName` is a
+text field). **Editing `type` in JSON does not change behaviour** — and if it no
+longer matches the `.ts` type, the build fails (`assertContentMatchesSchema`
+rejects the drift). To actually change a field's type, edit the `.ts` file and
+update the mirror to match.
+
+For **grid** fields you *can* change one presentational attribute — `layout`:
+
+```jsonc
+"coreCompetencies": {
+  "type": "grid",
+  "layout": "responsive",   // "table" (default) | "stacked" | "responsive"
+  "label": "Core competencies",
+  "options": { "effectiveCommunication": "Effective Communication Skills", ... }
+}
+```
+
+- `"table"` — one horizontal row; columns as table headers (best for short labels).
+- `"stacked"` — one labeled row per option, always vertical (best for long
+  question text).
+- `"responsive"` — stacked on phones, laid out horizontally on wider screens.
+
+`layout` is purely visual — it never changes what gets saved. Omit it to get
+`"table"`.
+
 ## 4. Save and ship
 
 That's it. Re-deploy — non-developers see the new copy immediately, no code review needed for content-only changes.
