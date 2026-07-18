@@ -29,6 +29,15 @@ export type FieldType =
   | "group"
   | "signature";
 
+/**
+ * Presentational layout for a `grid` field, authored in the content JSON.
+ * Purely visual — never changes the DOM input `name`/`value` contract.
+ *   table      — single-row HTML table, columns as headers (default).
+ *   stacked    — one labeled row per column, always vertical.
+ *   responsive — stacked on narrow screens, horizontal row ≥ breakpoint.
+ */
+export type GridLayout = "table" | "stacked" | "responsive";
+
 export interface FieldOption {
   /** Stable identifier — referenced by `visibleWhen` predicates and validators. Lives in TS. */
   value: string;
@@ -186,6 +195,15 @@ export interface FormContent {
           placeholder?: string;
           /** Per-column labels for grid fields. Keyed by `FieldOption.value` / `GridColumn.name`. */
           options?: Record<string, string>;
+          /**
+           * Mirror of the TS schema field `type`, surfaced here so the content
+           * JSON is self-describing. TS remains the source of truth — a mismatch
+           * is rejected by `assertContentMatchesSchema` at load time. Optional so
+           * schemas can adopt the mirror incrementally.
+           */
+          type?: FieldType;
+          /** Grid-only presentational layout (default "table"). See `GridLayout`. */
+          layout?: GridLayout;
         }
       >;
     }

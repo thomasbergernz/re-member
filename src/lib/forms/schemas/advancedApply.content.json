@@ -6,38 +6,48 @@
       "title": "About You",
       "fields": {
         "firstName": {
+          "type": "text",
           "label": "First name",
           "placeholder": "Jane"
         },
         "lastName": {
+          "type": "text",
           "label": "Last name",
           "placeholder": "Doe"
         },
         "dateOfBirth": {
+          "type": "date",
           "label": "Date of Birth",
           "placeholder": "DD/MM/YYYY"
         },
         "ethnicity": {
+          "type": "text",
           "label": "Ethnicity",
           "help": "Optional — used for equity reporting"
         },
         "address": {
+          "type": "textarea",
           "label": "Physical address"
         },
         "postalAddress": {
+          "type": "textarea",
           "label": "Postal address",
           "help": "If different from above"
         },
         "phone": {
+          "type": "tel",
           "label": "Phone"
         },
         "email": {
+          "type": "email",
           "label": "Email"
         },
         "businessName": {
+          "type": "text",
           "label": "Business name"
         },
         "website": {
+          "type": "text",
           "label": "Website",
           "placeholder": "https://"
         }
@@ -47,16 +57,20 @@
       "title": "Training & Education",
       "fields": {
         "qualifications": {
+          "type": "repeatable",
           "label": "Qualifications",
           "help": "Add each course or certificate separately."
         },
         "qualifications.name": {
+          "type": "text",
           "label": "Course name"
         },
         "qualifications.provider": {
+          "type": "text",
           "label": "Provider"
         },
         "qualifications.year": {
+          "type": "number",
           "label": "Year completed"
         }
       }
@@ -65,25 +79,32 @@
       "title": "Professional Experience",
       "fields": {
         "rows": {
+          "type": "repeatable",
           "label": "Experience rows"
         },
         "rows.role": {
+          "type": "text",
           "label": "Role"
         },
         "rows.skills": {
+          "type": "textarea",
           "label": "Skills"
         },
         "rows.description": {
+          "type": "textarea",
           "label": "Description"
         },
         "example1": {
+          "type": "textarea",
           "label": "Example narrative 1",
           "help": "Describe a meaningful client engagement."
         },
         "example2": {
+          "type": "textarea",
           "label": "Example narrative 2"
         },
         "example3": {
+          "type": "textarea",
           "label": "Example narrative 3"
         }
       }
@@ -92,6 +113,8 @@
       "title": "Further Requirements",
       "fields": {
         "furtherRequirements": {
+          "type": "grid",
+          "layout": "stacked",
           "label": "Further requirements",
           "options": {
             "agreeMemberServices": "Do you agree to actively provide Member Services?",
@@ -110,6 +133,8 @@
       "title": "Professional Standards & Core Competencies",
       "fields": {
         "coreCompetencies": {
+          "type": "grid",
+          "layout": "responsive",
           "label": "Core competencies",
           "help": "Tick the competencies you are confident in providing. Stable column order — reordering breaks the production sheet contract.",
           "options": {
@@ -142,30 +167,39 @@
       "title": "Referees",
       "fields": {
         "referees": {
+          "type": "group",
           "label": "Two referees"
         },
         "referee1Name": {
+          "type": "text",
           "label": "Referee 1 — name"
         },
         "referee1Role": {
+          "type": "text",
           "label": "Referee 1 — role"
         },
         "referee1Email": {
+          "type": "email",
           "label": "Referee 1 — email"
         },
         "referee1Phone": {
+          "type": "tel",
           "label": "Referee 1 — phone"
         },
         "referee2Name": {
+          "type": "text",
           "label": "Referee 2 — name"
         },
         "referee2Role": {
+          "type": "text",
           "label": "Referee 2 — role"
         },
         "referee2Email": {
+          "type": "email",
           "label": "Referee 2 — email"
         },
         "referee2Phone": {
+          "type": "tel",
           "label": "Referee 2 — phone"
         }
       }
@@ -174,30 +208,39 @@
       "title": "Declarations",
       "fields": {
         "accuracy": {
+          "type": "checkbox",
           "label": "I confirm that the information I have provided is true and accurate to the best of my knowledge."
         },
         "ethics": {
+          "type": "checkbox",
           "label": "I agree to abide by the JimuMember Code of Ethics and Scope of Practice."
         },
         "scope": {
+          "type": "checkbox",
           "label": "I understand and will work within the JimuMember Scope of Practice."
         },
         "memberServices": {
+          "type": "checkbox",
           "label": "I agree to actively provide Member Services."
         },
         "interview": {
+          "type": "checkbox",
           "label": "I agree to an interview by one or more committee members."
         },
         "professionalDev": {
+          "type": "checkbox",
           "label": "I agree to submit proof of up to 10 hours of professional development each year."
         },
         "criminalCheck": {
+          "type": "checkbox",
           "label": "I am willing to provide a current criminal background check."
         },
         "meetings": {
+          "type": "checkbox",
           "label": "I am willing to attend regular JimuMember meetings and events, and engage with and support my local JimuMember community."
         },
         "signature": {
+          "type": "signature",
           "label": "Your signature",
           "help": "Type your full name, or switch to Draw to sign with your mouse or finger."
         }

@@ -3,7 +3,12 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import FeedbackWidget from "../../components/FeedbackWidget.astro";
 import Step from "../../lib/forms/render/Step.astro";
 import { schema as advancedApplySchema, COMPETENCY_IDS } from "../../lib/forms/schemas/advancedApply";
-import advancedApplyContent from "../../lib/forms/schemas/advancedApply.content.json";
+import advancedApplyContentJson from "../../lib/forms/schemas/advancedApply.content.json";
+import type { FormContent } from "../../lib/forms/types";
+
+// JSON imports widen literal `type` values to `string`; cast to the typed
+// content shape (same pattern as runtime.ts SCHEMA_REGISTRY).
+const advancedApplyContent = advancedApplyContentJson as FormContent;
 
 const token = Astro.url.searchParams.get("token");
 ---
