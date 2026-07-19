@@ -84,6 +84,14 @@ export function getServiceAccountJwtAuth(scopes: string[]): JWT {
   // googleapis routes BOTH the token fetch AND every Sheets/Drive data call
   // through this auth client's transporter, so forcing native fetch here fixes
   // the entire chain. See .wolf/buglog.json bug-033/034.
+  //
+  // undici (native fetch) requires `duplex: "half"` on any request that sends a
+  // streaming body — Drive media uploads pass `Readable.from(buffer)`, so
+  // without this every upload throws "RequestInit: duplex option is required
+  // when sending a body." gaxios forwards the whole opts object to
+  // fetch(url, opts) (gaxios `_defaultAdapter`), so a `duplex` key on
+  // transporter.defaults reaches undici's RequestInit. undici ignores it on
+  // bodyless GETs, so it is safe to set globally here.
   const transporter = (client as unknown as {
     transporter?: { defaults?: Record<string, unknown> };
   }).transporter;
@@ -91,6 +99,7 @@ export function getServiceAccountJwtAuth(scopes: string[]): JWT {
     transporter.defaults = {
       ...(transporter.defaults ?? {}),
       fetchImplementation: globalThis.fetch,
+      duplex: "half",
     };
   }
 
